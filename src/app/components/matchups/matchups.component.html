@@ -1,0 +1,43 @@
+<div class="container-fluid my-5">
+  <h2 class="text-center mb-4">Current Week Matchups</h2>
+
+  <!-- Week Selector -->
+  <div class="form-group row justify-content-center">
+    <label for="weekSelect" class="col-sm-4 col-form-label">Select Week:</label>
+    <div class="col-sm-6">
+      <select id="weekSelect" class="form-control" [(ngModel)]="selectedWeek">
+        <option *ngFor="let week of weeks" [value]="week">Week {{ week }}</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Display the filtered matchups for the selected week -->
+  <div *ngIf="getFilteredMatchups().length > 0" class="row mt-4">
+    <div *ngFor="let matchup of getFilteredMatchups()" class="col-md-12 mb-4">
+      <div class="card">
+        <div class="card-body">
+          <div class="team">
+            <h5 class="card-title">{{ matchup.homeTeamName }}</h5>
+            <p class="card-text">
+              Points: <strong>{{ matchup.homeTeamPoints }}</strong>
+              <span *ngIf="matchup.winner === 'HOME'" class="badge badge-success ml-2">Winner</span>
+            </p>
+          </div>
+          <hr>
+          <div class="team">
+            <h5 class="card-title">{{ matchup.awayTeamName }}</h5>
+            <p class="card-text">
+              Points: <strong>{{ matchup.awayTeamPoints }}</strong>
+              <span *ngIf="matchup.winner === 'AWAY'" class="badge badge-success ml-2">Winner</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message if no matchups are found -->
+  <div *ngIf="getFilteredMatchups().length === 0" class="alert alert-warning mt-4">
+    No matchups found for this week.
+  </div>
+</div>

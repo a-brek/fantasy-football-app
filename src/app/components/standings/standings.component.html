@@ -1,0 +1,28 @@
+<div class="container my-5">
+  <h2 class="text-center mb-4">Fantasy Football Team Standings</h2>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered">
+      <thead class="thead-dark">
+        <tr>
+          <th>Rank</th>
+          <th>Team Name</th>
+          <th>Wins</th>
+          <th>Losses</th>
+          <th>Points</th>
+          <th>Points Against</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let team of sortedTeams; let i = index">
+          <td>{{ i + 1 }}</td> <!-- The rank is based on index + 1 -->
+          <td>{{ getTeamName(team.id) }}</td>
+          <td>{{ team.record.division.wins }}</td>
+          <td>{{ team.record.division.losses }}</td>
+          <td>{{ team.points | number:'1.2-2' }}</td> 
+          <td>{{ team.record.overall.pointsAgainst | number:'1.2-2' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

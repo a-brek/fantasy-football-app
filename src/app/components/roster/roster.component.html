@@ -1,0 +1,117 @@
+<div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        <h2 class="text-center mt-3">Select a Team</h2>
+  
+        <!-- Team Selector -->
+        <div class="form-group mb-4">
+          <label for="teamSelect" class="form-label">Choose a team:</label>
+          <select id="teamSelect" class="form-control" [(ngModel)]="selectedTeamId" (change)="onTeamChange(selectedTeamId)">
+            <option *ngFor="let team of teams" [value]="team.id">{{ team.name }}</option>
+          </select>
+        </div>
+  
+        <!-- Starting Lineup Display -->
+        <div *ngIf="selectedTeamName !== 'Unknown Team'" class="mt-4">
+          <h3 class="text-center mb-3">Starting Lineup for {{ selectedTeamName }}</h3>
+  
+          <div class="row">
+            <!-- Quarterback -->
+            <div class="col-md-4">
+              <h4 class="font-weight-bold">Quarterback (QB)</h4>
+              <ul class="list-group">
+                <li class="list-group-item" *ngFor="let player of roster.QB">
+                  {{ player.playerName }} - 
+                  <span [ngClass]="{'text-danger': player.injuryStatus !== 'NORMAL'}">
+                    {{ player.injuryStatus === 'NORMAL' ? 'Healthy' : player.injuryStatus }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+  
+            <!-- Running Backs (RB) -->
+            <div class="col-md-4">
+              <h4 class="font-weight-bold">Running Backs (RB)</h4>
+              <ul class="list-group">
+                <li class="list-group-item" *ngFor="let player of roster.RB">
+                  {{ player.playerName }} - 
+                  <span [ngClass]="{'text-danger': player.injuryStatus !== 'NORMAL'}">
+                    {{ player.injuryStatus === 'NORMAL' ? 'Healthy' : player.injuryStatus }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+  
+            <!-- Wide Receivers (WR) -->
+            <div class="col-md-4">
+              <h4 class="font-weight-bold">Wide Receivers (WR)</h4>
+              <ul class="list-group">
+                <li class="list-group-item" *ngFor="let player of roster.WR">
+                  {{ player.playerName }} - 
+                  <span [ngClass]="{'text-danger': player.injuryStatus !== 'NORMAL'}">
+                    {{ player.injuryStatus === 'NORMAL' ? 'Healthy' : player.injuryStatus }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+  
+            <!-- Tight End (TE) -->
+            <div class="col-md-4 mt-3">
+              <h4 class="font-weight-bold">Tight End (TE)</h4>
+              <ul class="list-group">
+                <li class="list-group-item" *ngFor="let player of roster.TE">
+                  {{ player.playerName }} - 
+                  <span [ngClass]="{'text-danger': player.injuryStatus !== 'NORMAL'}">
+                    {{ player.injuryStatus === 'NORMAL' ? 'Healthy' : player.injuryStatus }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+  
+            <!-- FLEX -->
+            <div class="col-md-4 mt-3">
+              <h4 class="font-weight-bold">FLEX</h4>
+              <ul class="list-group">
+                <li class="list-group-item" *ngFor="let player of roster.FLEX">
+                  {{ player.playerName }} - 
+                  <span [ngClass]="{'text-danger': player.injuryStatus !== 'NORMAL'}">
+                    {{ player.injuryStatus === 'NORMAL' ? 'Healthy' : player.injuryStatus }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+  
+            <!-- Defense (D/ST) -->
+            <div class="col-md-4 mt-3">
+              <h4 class="font-weight-bold">Defense (D/ST)</h4>
+              <ul class="list-group">
+                <li class="list-group-item" *ngFor="let player of roster.DEFENSE">
+                  {{ player.playerName }} - 
+                  <span [ngClass]="{'text-danger': player.injuryStatus !== 'NORMAL'}">
+                    {{ player.injuryStatus === 'NORMAL' ? 'Healthy' : player.injuryStatus }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+  
+        <!-- Bench Players -->
+        <div *ngIf="roster.benchPlayers?.length > 0" class="mt-4">
+          <h3 class="text-center">Bench</h3>
+          <ul class="list-group">
+            <li class="list-group-item" *ngFor="let player of roster.benchPlayers">
+              {{ player.playerPoolEntry.player.fullName }} - 
+              <span [ngClass]="{'text-danger': player.playerPoolEntry.player.injuryStatus !== 'NORMAL'}">
+                {{ player.playerPoolEntry.player.injuryStatus === 'NORMAL' ? 'Healthy' : player.playerPoolEntry.player.injuryStatus }}
+              </span>
+            </li>
+          </ul>
+        </div>
+  
+        <!-- Message if no team is selected -->
+        <p *ngIf="!selectedTeamId" class="text-muted mt-4">Please select a team to view its roster.</p>
+      </div>
+    </div>
+  </div>
+  
