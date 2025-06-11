@@ -29,11 +29,11 @@
               "src/favicon.ico",
               "src/assets"
             ],
+            "scripts": [],
             "styles": [
               "src/styles.scss",
               "node_modules/bootstrap/dist/css/bootstrap.min.css"
-            ],
-            "scripts": []
+            ]
           },
           "configurations": {
             "production": {
@@ -89,10 +89,6 @@
             "assets": [
               "src/favicon.ico",
               "src/assets"
-            ],
-            "styles": [
-              "src/styles.scss",
-              "node_modules/bootstrap/dist/css/bootstrap.min.css"
             ],
             "scripts": []
           }

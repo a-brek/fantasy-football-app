@@ -1,0 +1,17 @@
+<div *ngIf="overallRecord">
+    <h4>{{ team.name }} - Historical Overview</h4>
+    <p>Total Wins: {{ overallRecord.wins }}</p>
+    <p>Total Losses: {{ overallRecord.losses }}</p>
+    <p>Points For: {{ overallRecord.pointsFor | number:'1.2-2' }}</p>
+    <p>Points Against: {{ overallRecord.pointsAgainst | number:'1.2-2' }}</p>
+  
+    <!-- Circle Graph for Historical Wins and Losses -->
+    <div class="circle-graph" [ngStyle]="getCircleGraphStyle()"></div>
+    
+    <!-- Win Percentage -->
+    <p>Win Percentage: {{ getWinPercentage() | number:'1.0-2' }}%</p>
+  </div>
+  <div *ngIf="!overallRecord">
+    <p>Loading historical data...</p>
+  </div>
+  

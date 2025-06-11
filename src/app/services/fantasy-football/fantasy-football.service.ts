@@ -23,11 +23,38 @@ export class FantasyFootballService {
 
   // Get non-roster team data
   getTeamsData(): Observable<any> {
-    return this.http.get(`${this.baseUrl}?view=mTeam`);
+    return this.http.get(`${this.baseUrl}/current`, {
+      params: { leagueId: '532886', year: '2024', view: 'mTeam' }
+    });
   }
-
+  
   // Get roster data
   getRosters(): Observable<any> {
     return this.http.get(`${this.baseUrl}?view=mRoster`);
+  }
+
+  getCurrentSeasonData(leagueId: string, year: number, view: string) {
+    return this.http.get(`${this.baseUrl}/current`, {
+      params: { leagueId, year: year.toString(), view }
+    });
+  }
+
+  getHistoricalData(leagueId: string, years: number[], view: string) {
+    const yearsParam = years.join(',');
+    return this.http.get(`${this.baseUrl}/history`, {
+      params: { leagueId, years: yearsParam, view }
+    });
+  }
+
+  getAllYearsData(leagueId: string, view: string, startYear: number = 2010) {
+    // Call the backend without including startYear as a URL parameter
+    return this.http.get(`${this.baseUrl}/allYears`, {
+      params: { leagueId, view }
+    });
+  }
+  
+  aggregateData(dataArray: any[], field: string, operation: 'average' | 'sum') {
+    const total = dataArray.reduce((acc, data) => acc + (data[field] || 0), 0);
+    return operation === 'average' ? total / dataArray.length : total;
   }
 }

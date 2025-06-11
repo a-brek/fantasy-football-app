@@ -1,6 +1,15 @@
-.card {
+.container-fluid {
+    background-color: #f0f0f0;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    border: 2px solid black;
+    padding: 20px;
+  }
+  
+  .card {
     border: 1px solid #ddd;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
   }
   
   .card-body {
@@ -21,6 +30,10 @@
   }
   
   .alert {
+    font-size: 20px;
     text-align: center;
+    background-color: #e0e0e0;
+    border: 2px solid black;
+    padding: 10px;
   }
   

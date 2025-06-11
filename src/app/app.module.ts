@@ -9,6 +9,7 @@ import { HomepageComponent } from './components/homepage/homepage.component';
 import { StandingsComponent } from './components/standings/standings.component';
 import { MatchupsComponent } from './components/matchups/matchups.component';
 import { RosterComponent } from './components/roster/roster.component';
+import { TeamDetailsComponent } from './components/team-details/team-details.component';
 
 @NgModule({
   declarations: [
@@ -16,7 +17,8 @@ import { RosterComponent } from './components/roster/roster.component';
     HomepageComponent,
     StandingsComponent,
     MatchupsComponent,
-    RosterComponent
+    RosterComponent,
+    TeamDetailsComponent
   ],
   imports: [
     BrowserModule,

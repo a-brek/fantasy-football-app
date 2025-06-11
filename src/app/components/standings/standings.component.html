@@ -9,19 +9,46 @@
           <th>Team Name</th>
           <th>Wins</th>
           <th>Losses</th>
+          <th>Win %</th>
+          <th>Circle Graph</th>
           <th>Points</th>
           <th>Points Against</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let team of sortedTeams; let i = index">
-          <td>{{ i + 1 }}</td> <!-- The rank is based on index + 1 -->
-          <td>{{ getTeamName(team.id) }}</td>
-          <td>{{ team.record.division.wins }}</td>
-          <td>{{ team.record.division.losses }}</td>
-          <td>{{ team.points | number:'1.2-2' }}</td> 
-          <td>{{ team.record.overall.pointsAgainst | number:'1.2-2' }}</td>
-        </tr>
+        <ng-container *ngFor="let team of sortedTeams; let i = index">
+          <tr (click)="toggleTeamDetails(team)">
+            <td>{{ i + 1 }}</td>
+            <td>{{ getTeamName(team.id) }}</td>
+            <td>
+              {{ team.record.overall.wins }}
+              <span *ngIf="team.id === highestWinsTeamId">🏆</span>
+            </td>
+            <td>
+              {{ team.record.overall.losses }}
+              <span *ngIf="team.id === highestLossesTeamId">🏆</span>
+            </td>
+            <td>{{ getWinPercentage(team.record.overall.wins, team.record.overall.losses) | number:'1.0-2' }}%</td>
+            <td>
+              <div class="circle-graph" [ngStyle]="getCircleGraphStyle(team.record.overall.wins, team.record.overall.losses)"></div>
+            </td>
+            <td>
+              {{ team.record.overall.pointsFor | number:'1.2-2' }}
+              <span *ngIf="team.id === highestPointsForTeamId">🏆</span>
+            </td>
+            <td>
+              {{ team.record.overall.pointsAgainst | number:'1.2-2' }}
+              <span *ngIf="team.id === highestPointsAgainstTeamId">🏆</span>
+            </td>
+          </tr>
+          
+          <!-- Expandable Row for Historical Data -->
+          <tr *ngIf="selectedTeam && selectedTeam.id === team.id">
+            <td colspan="8">
+              <app-team-details [team]="selectedTeam" [overallRecord]="selectedTeamHistoricalData"></app-team-details>
+            </td>
+          </tr>
+        </ng-container>
       </tbody>
     </table>
   </div>

@@ -39,6 +39,7 @@ export class RosterComponent implements OnInit {
           benchPlayers: team.roster.entries.filter((entry: any) => entry.lineupSlotId === 20)  // Bench
         }));
 
+        console.log(this.fullRosters);
         // Initialize default team if one is pre-selected
         if (this.selectedTeamId) {
           this.onTeamChange(this.selectedTeamId);

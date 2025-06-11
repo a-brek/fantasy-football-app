@@ -1,18 +1,29 @@
-<div class="container-fluid my-5">
-  <div class="row">
-    <!-- Standings Component (Left Column) -->
-    <div class="col-md-6">
-      <app-standings></app-standings>
-    </div>
+<div class="app-container" style="margin: 0 auto; background-color: #e0e0e0; padding: 20px; font-family: 'Times New Roman', serif;">
+  <div class="header" style="text-align: center; background-color: #333; padding: 10px; border-bottom: 4px solid black;">
+    <h1 style="color: white; font-size: 50px; text-transform: uppercase; letter-spacing: 2px;">OGFF</h1>
+    <marquee style="background-color: #555; color: white; font-size: 18px;">Vick Sucks!!</marquee>
+  </div>
 
-    <!-- Matchups Component (Right Column) -->
-    <div class="col-md-6">
-      <app-matchups></app-matchups>
+  <div class="main-content" style="margin-top: 20px;">
+    <div class="row">
+      <div class="col-md-6">
+        <app-matchups></app-matchups>
+      </div>
+      <div class="col-md-6">
+        <div>
+          <app-standings></app-standings>
+        </div>
+  
+        <div>
+          <app-roster></app-roster>
+        </div>
+      </div>
     </div>
-    
-    <!-- Rosters Component (Right Column) -->
-    <div>
-      <app-roster></app-roster>
-    </div>
+  </div>
+
+  <div class="footer" style="text-align: center; margin-top: 20px; background-color: #333; padding: 10px;">
+    <p style="color: white; font-size: 14px;">© OG Fantasy Football
+      
+    </p>
   </div>
 </div>
