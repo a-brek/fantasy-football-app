@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(git remote remove:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(jq:*)",
+      "Bash(python:*)",
+      "Bash(node:*)",
+      "Bash(mkdir:*)"
+    ],
+    "deny": []
+  }
+}
