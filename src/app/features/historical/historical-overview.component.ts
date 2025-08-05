@@ -25,10 +25,34 @@ import {
     <div class="historical-overview">
       <!-- Header -->
       <div class="overview-header">
-        <h1 class="page-title">League History</h1>
-        <p class="page-subtitle">
-          Explore {{ totalSeasons() }} seasons of fantasy football history
-        </p>
+        <div class="header-content">
+          <h1 class="page-title">League History</h1>
+          <p class="page-subtitle">
+            Explore {{ totalSeasons() }} seasons of fantasy football history
+          </p>
+        </div>
+        
+        <!-- Subtle refresh controls -->
+        <div class="refresh-controls">
+          <button 
+            class="btn-refresh"
+            (click)="loadFullHistoricalData()"
+            [disabled]="isLoading()"
+            *ngIf="totalSeasons() < 5"
+            title="Load Complete Historical Data (2010-Present)">
+            <span *ngIf="!isLoading()">📊</span>
+            <span *ngIf="isLoading()">⏳</span>
+          </button>
+          
+          <button 
+            class="btn-refresh"
+            (click)="refreshHistoricalData()"
+            [disabled]="isLoading()"
+            title="Refresh Historical Data">
+            <span *ngIf="!isLoading()">🔄</span>
+            <span *ngIf="isLoading()">⏳</span>
+          </button>
+        </div>
       </div>
 
       <!-- Quick Stats Grid -->
@@ -51,25 +75,6 @@ import {
         </div>
       </div>
 
-      <!-- Historical Data Actions -->
-      <div class="historical-actions">
-        <button 
-          class="btn btn-primary btn-lg"
-          (click)="loadFullHistoricalData()"
-          [disabled]="isLoading()"
-          *ngIf="totalSeasons() < 5">
-          <span *ngIf="!isLoading()">📊 Load Complete Historical Data (2010-Present)</span>
-          <span *ngIf="isLoading()">⏳ Loading Historical Data...</span>
-        </button>
-        
-        <button 
-          class="btn btn-secondary"
-          (click)="refreshHistoricalData()"
-          [disabled]="isLoading()">
-          <span *ngIf="!isLoading()">🔄 Refresh Data</span>
-          <span *ngIf="isLoading()">⏳ Refreshing...</span>
-        </button>
-      </div>
 
       <!-- Loading States -->
       <div *ngIf="isLoading()" class="loading-container">
@@ -89,6 +94,44 @@ import {
       <!-- Main Content -->
       <div *ngIf="!isLoading() && !hasError()" class="historical-content">
         
+        <!-- Season Summaries -->
+        <section class="seasons-section">
+          <h2 class="section-title">Season Summaries</h2>
+          
+          <div class="seasons-grid">
+            <div class="season-card" *ngFor="let season of availableSeasons()">
+              <div class="season-header">
+                <h3>{{ season }} Season</h3>
+                <span class="season-status" *ngIf="season === latestSeason()">Current</span>
+              </div>
+              
+              <div class="season-stats">
+                <div class="season-stat">
+                  <span class="stat-label">Champion</span>
+                  <span class="stat-value">{{ getSeasonChampion(season) }}</span>
+                </div>
+                <div class="season-stat">
+                  <span class="stat-label">Runner-up</span>
+                  <span class="stat-value">{{ getSeasonRunnerUp(season) }}</span>
+                </div>
+                <div class="season-stat">
+                  <span class="stat-label">Regular Season Leader</span>
+                  <span class="stat-value">{{ getRegularSeasonLeader(season) }}</span>
+                </div>
+              </div>
+              
+              <div class="season-actions">
+                <button 
+                  class="btn btn-outline-primary btn-sm"
+                  [routerLink]="['/historical/season', season]">
+                  View Details
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
         <!-- All-Time Records Section -->
         <section class="records-section">
           <h2 class="section-title">All-Time Records</h2>
@@ -159,55 +202,6 @@ import {
           </div>
         </section>
 
-        <!-- Season Summaries -->
-        <section class="seasons-section">
-          <h2 class="section-title">Season Summaries</h2>
-          
-          <div class="seasons-grid">
-            <div class="season-card" *ngFor="let season of (showAllSeasons ? availableSeasons() : availableSeasons().slice(0, 6))">
-              <div class="season-header">
-                <h3>{{ season }} Season</h3>
-                <span class="season-status" *ngIf="season === latestSeason()">Current</span>
-              </div>
-              
-              <div class="season-stats">
-                <div class="season-stat">
-                  <span class="stat-label">Champion</span>
-                  <span class="stat-value">{{ getSeasonChampion(season) }}</span>
-                </div>
-                <div class="season-stat">
-                  <span class="stat-label">Runner-up</span>
-                  <span class="stat-value">{{ getSeasonRunnerUp(season) }}</span>
-                </div>
-                <div class="season-stat">
-                  <span class="stat-label">Regular Season Leader</span>
-                  <span class="stat-value">{{ getRegularSeasonLeader(season) }}</span>
-                </div>
-              </div>
-              
-              <div class="season-actions">
-                <button 
-                  class="btn btn-outline-primary btn-sm"
-                  [routerLink]="['/historical/season', season]">
-                  View Details
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="view-all-seasons" *ngIf="availableSeasons().length > 6 && !showAllSeasons">
-            <button class="btn btn-secondary" (click)="viewAllSeasons()">
-              View All {{ availableSeasons().length }} Seasons
-            </button>
-          </div>
-          
-          <div class="view-all-seasons" *ngIf="showAllSeasons">
-            <button class="btn btn-outline-secondary" (click)="showLessSeasons()">
-              Show Less
-            </button>
-          </div>
-        </section>
-
         <!-- Quick Links -->
         <section class="quick-links-section">
           <h2 class="section-title">Explore More</h2>
@@ -249,8 +243,48 @@ import {
     }
 
     .overview-header {
-      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
       margin-bottom: 3rem;
+    }
+
+    .header-content {
+      text-align: center;
+      flex: 1;
+    }
+
+    .refresh-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .btn-refresh {
+      background: transparent;
+      border: 1px solid var(--border-color, #dee2e6);
+      border-radius: 6px;
+      padding: 0.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-muted, #6c757d);
+      min-width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-refresh:hover:not(:disabled) {
+      background: var(--card-bg, #f8f9fa);
+      border-color: var(--primary-color, #007bff);
+      color: var(--primary-color, #007bff);
+    }
+
+    .btn-refresh:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .page-title {
@@ -297,25 +331,6 @@ import {
       letter-spacing: 0.5px;
     }
 
-    /* Historical Actions */
-    .historical-actions {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 3rem;
-      padding: 2rem;
-      background: var(--card-bg, #fff);
-      border: 1px solid var(--border-color, #dee2e6);
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .btn-lg {
-      padding: 0.75rem 1.5rem;
-      font-size: 1rem;
-      font-weight: 600;
-    }
 
     .loading-container, .error-container {
       text-align: center;
@@ -532,6 +547,7 @@ import {
     .season-stat .stat-value {
       font-weight: 500;
       color: var(--text-primary, #212529);
+      font-size: 0.9rem;
     }
 
     .quick-links-grid {
@@ -615,15 +631,26 @@ import {
       font-size: 0.8rem;
     }
 
-    .view-all-seasons {
-      text-align: center;
-      margin-top: 2rem;
-    }
 
     /* Responsive Design */
     @media (max-width: 768px) {
       .historical-overview {
         padding: 1rem;
+      }
+
+      .overview-header {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .header-content {
+        order: 1;
+      }
+
+      .refresh-controls {
+        order: 2;
+        margin-top: 0;
       }
 
       .page-title {
@@ -662,8 +689,6 @@ export class HistoricalOverviewComponent implements OnInit {
   private readonly historicalStore = inject(HistoricalDataStore);
   private readonly teamsStore = inject(TeamsStore);
   
-  // Control how many seasons to show
-  protected showAllSeasons = false;
 
   // Store computed properties
   public readonly isLoading = this.historicalStore.isLoading;
@@ -806,6 +831,11 @@ export class HistoricalOverviewComponent implements OnInit {
   }
 
   getSeasonChampion(season: number): string {
+    // Current season should always show TBD
+    if (season === this.latestSeason()) {
+      return 'TBD';
+    }
+    
     const data = this.historicalStore.data();
     const seasonData = data?.seasonData[season];
     if (!seasonData || !seasonData.finalStandings || seasonData.finalStandings.length === 0) {
@@ -817,6 +847,11 @@ export class HistoricalOverviewComponent implements OnInit {
   }
 
   getSeasonRunnerUp(season: number): string {
+    // Current season should always show TBD
+    if (season === this.latestSeason()) {
+      return 'TBD';
+    }
+    
     const data = this.historicalStore.data();
     const seasonData = data?.seasonData[season];
     if (!seasonData || !seasonData.finalStandings || seasonData.finalStandings.length === 0) {
@@ -828,6 +863,11 @@ export class HistoricalOverviewComponent implements OnInit {
   }
 
   getRegularSeasonLeader(season: number): string {
+    // Current season should always show TBD
+    if (season === this.latestSeason()) {
+      return 'TBD';
+    }
+    
     const data = this.historicalStore.data();
     const seasonData = data?.seasonData[season];
     if (!seasonData || !seasonData.finalStandings || seasonData.finalStandings.length === 0) {
@@ -869,13 +909,4 @@ export class HistoricalOverviewComponent implements OnInit {
     });
   }
 
-  viewAllSeasons(): void {
-    console.log('📅 Viewing all seasons - expanding current view');
-    this.showAllSeasons = true;
-  }
-
-  showLessSeasons(): void {
-    console.log('📅 Showing fewer seasons - collapsing view');
-    this.showAllSeasons = false;
-  }
 }

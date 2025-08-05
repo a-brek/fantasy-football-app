@@ -73,7 +73,7 @@ export class HistoricalDataService {
     const startYear = 2010; // Start from 2010 as you mentioned your league started then
     const seasons: number[] = [];
     
-    // Generate array of years from 2010 to current year
+    // Generate array of years from 2010 to current year (include current for display but mark incomplete)
     for (let year = startYear; year <= currentYear; year++) {
       seasons.push(year);
     }
@@ -88,6 +88,14 @@ export class HistoricalDataService {
           if (response.success && response.data) {
             const historicalSeason = this.transformToHistoricalSeason(response.data, response.year, response.apiVersion);
             if (historicalSeason) {
+              // Mark current season as incomplete
+              if (response.year === currentYear) {
+                historicalSeason.isCurrentSeason = true;
+                historicalSeason.isComplete = false;
+              } else {
+                historicalSeason.isCurrentSeason = false;
+                historicalSeason.isComplete = true;
+              }
               historicalSeasons.push(historicalSeason);
             }
           } else {
@@ -266,7 +274,7 @@ export class HistoricalDataService {
     
     return this.http.get<any>(url, {
       params: {
-        view: 'mTeam'  // Get team data with records
+        view: 'mTeam,mRoster,mSchedule,mSettings,mStandings'  // Comprehensive views for modern API
       }
     }).pipe(
       map(data => ({
@@ -308,7 +316,7 @@ export class HistoricalDataService {
     
     return this.http.get<any>(url, {
       params: {
-        view: 'mMatchup,mTeam,mStandings'  // Use views that work with leagueHistory
+        view: 'mMatchup,mTeam,mStandings,mRoster,mSchedule,mSettings,mDraftDetail'  // Comprehensive views for legacy API
       }
     }).pipe(
       map(data => ({

@@ -948,6 +948,12 @@ export interface HistoricalSeason {
   
   /** Draft information */
   draftInfo: HistoricalDraftInfo;
+  
+  /** Whether this is the current active season */
+  isCurrentSeason?: boolean;
+  
+  /** Whether the season is complete (playoffs finished) */
+  isComplete?: boolean;
 }
 
 /**
