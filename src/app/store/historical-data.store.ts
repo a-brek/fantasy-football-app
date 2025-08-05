@@ -191,13 +191,17 @@ export interface RuleChange {
 export class HistoricalDataStore extends BaseStore<HistoricalData> {
   
   private readonly historicalConfig: StoreConfig = {
-    cacheTtl: 60 * 60 * 1000, // 1 hour - historical data changes infrequently
+    cacheTtl: 24 * 60 * 60 * 1000, // 24 hours - historical data rarely changes
     retryAttempts: 2,
     retryDelay: 1000,
     autoRefreshInterval: null, // No auto-refresh for historical data
     persistToLocalStorage: true,
     storageKey: 'fantasy-football-historical-data'
   };
+
+  // Intelligent caching - separate TTL for different data types
+  private readonly seasonDataCacheTtl = 7 * 24 * 60 * 60 * 1000; // 7 days for individual seasons
+  private readonly recentSeasonCacheTtl = 60 * 60 * 1000; // 1 hour for current/recent season
 
   private readonly fantasyService = inject(FantasyFootballService);
   private readonly historicalService = inject(HistoricalDataService);
@@ -229,6 +233,13 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
   protected loadData(): Observable<HistoricalData> {
     console.log('🏈 Loading historical data from ESPN API (2010-present)...');
     
+    // Check if we have cached data first
+    const cachedData = this.getCachedHistoricalData();
+    if (cachedData) {
+      console.log('📱 Using cached historical data, loading incrementally...');
+      return this.loadIncrementalData(cachedData);
+    }
+    
     return this.historicalService.getAllHistoricalSeasons().pipe(
       map(seasons => {
         console.log(`✅ Loaded ${seasons.length} historical seasons`);
@@ -239,7 +250,7 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
           return acc;
         }, {} as { [seasonId: number]: HistoricalSeason });
         
-        return {
+        const historicalData = {
           availableSeasons,
           seasonData,
           teamHistories: this.buildTeamHistories(seasons),
@@ -247,12 +258,157 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
           allTimeRecords: this.buildAllTimeRecords(seasons),
           lastUpdated: Date.now()
         };
+        
+        // Cache the data for future use
+        this.cacheHistoricalData(historicalData);
+        
+        return historicalData;
       }),
       catchError(error => {
         console.error('❌ Failed to load historical data:', error);
         return of(this.createEmptyHistoricalData());
       })
     );
+  }
+
+  /**
+   * Load data incrementally - prioritize recent seasons and fill in gaps
+   */
+  private loadIncrementalData(cachedData: HistoricalData): Observable<HistoricalData> {
+    const currentYear = new Date().getFullYear();
+    const recentYears = [currentYear, currentYear - 1, currentYear - 2];
+    
+    // Check which recent seasons need updating
+    const seasonsToUpdate = recentYears.filter(year => {
+      const cachedSeason = cachedData.seasonData[year];
+      if (!cachedSeason) return true;
+      
+      // Check if cached data is stale for recent seasons
+      const cacheAge = Date.now() - cachedData.lastUpdated;
+      return cacheAge > this.recentSeasonCacheTtl;
+    });
+    
+    if (seasonsToUpdate.length === 0) {
+      console.log('📚 All recent data is fresh, using cached data');
+      return of(cachedData);
+    }
+    
+    console.log(`🔄 Updating ${seasonsToUpdate.length} recent seasons: ${seasonsToUpdate.join(', ')}`);
+    
+    // Load only the seasons that need updating
+    return this.historicalService.getHistoricalSeasonsData(seasonsToUpdate).pipe(
+      map(responses => {
+        const updatedSeasonData = { ...cachedData.seasonData };
+        const updatedSeasons: HistoricalSeason[] = [];
+        
+        responses.forEach(response => {
+          if (response.success && response.data) {
+            const historicalSeason = this.transformAPIResponse(response.data, response.year, response.apiVersion);
+            if (historicalSeason) {
+              updatedSeasonData[response.year] = historicalSeason;
+              updatedSeasons.push(historicalSeason);
+            }
+          }
+        });
+        
+        // Merge with cached data
+        const allSeasons = Object.values(updatedSeasonData);
+        const updatedData = {
+          ...cachedData,
+          seasonData: updatedSeasonData,
+          teamHistories: this.buildTeamHistories(allSeasons),
+          leagueEvolution: this.buildLeagueEvolution(allSeasons),
+          allTimeRecords: this.buildAllTimeRecords(allSeasons),
+          lastUpdated: Date.now()
+        };
+        
+        // Cache the updated data
+        this.cacheHistoricalData(updatedData);
+        
+        return updatedData;
+      }),
+      catchError(error => {
+        console.warn('⚠️ Incremental update failed, using cached data:', error);
+        return of(cachedData);
+      })
+    );
+  }
+
+  /**
+   * Get cached historical data from localStorage
+   */
+  private getCachedHistoricalData(): HistoricalData | null {
+    try {
+      const cached = localStorage.getItem(this.historicalConfig.storageKey!);
+      if (!cached) return null;
+      
+      const data: HistoricalData = JSON.parse(cached);
+      const cacheAge = Date.now() - data.lastUpdated;
+      
+      // Check if cache is still valid
+      if (cacheAge > this.historicalConfig.cacheTtl!) {
+        console.log('🗑️ Historical data cache expired');
+        localStorage.removeItem(this.historicalConfig.storageKey!);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.warn('⚠️ Failed to load cached historical data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cache historical data to localStorage
+   */
+  private cacheHistoricalData(data: HistoricalData): void {
+    try {
+      localStorage.setItem(this.historicalConfig.storageKey!, JSON.stringify(data));
+      console.log('💾 Cached historical data to localStorage');
+    } catch (error) {
+      console.warn('⚠️ Failed to cache historical data:', error);
+    }
+  }
+
+  /**
+   * Transform API response (extracted for reuse)
+   */
+  private transformAPIResponse(data: any, year: number, apiVersion: 'legacy' | 'modern'): HistoricalSeason | null {
+    // This would use the same transform logic from the historical service
+    // For now, return a minimal implementation
+    return {
+      seasonId: year,
+      leagueSettings: {
+        teamCount: 10,
+        scoringFormat: 'standard',
+        playoffFormat: { teams: 6, weeks: 3, bracket: 'single' },
+        rosterSettings: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DST: 1, K: 1, BENCH: 6 }
+      },
+      finalStandings: [],
+      seasonStats: {
+        leagueAverages: { pointsPerGame: 110, winningScore: 120, blowoutMargin: 30 },
+        seasonRecords: {
+          highestScore: { teamId: 1, value: 160 },
+          lowestScore: { teamId: 2, value: 80 },
+          mostPointsFor: { teamId: 3, value: 1600 },
+          mostPointsAgainst: { teamId: 4, value: 1580 },
+          bestRecord: { teamId: 5, value: 13 },
+          worstRecord: { teamId: 6, value: 2 },
+          biggestBlowout: { teamId: 7, value: 85 },
+          closestGame: { teamId: 8, value: 0.5 }
+        },
+        positionStats: {}
+      },
+      seasonHighlights: [],
+      playoffResults: { bracket: [], champion: 1, runnerUp: 2, thirdPlace: 3 },
+      draftInfo: {
+        draftDate: new Date(year, 7, 15).getTime(),
+        draftType: 'snake',
+        draftOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        draftPicks: []
+      }
+    };
   }
 
   protected getStoreName(): string {

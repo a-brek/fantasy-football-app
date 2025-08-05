@@ -53,8 +53,15 @@ export class HistoricalDataService {
   // API version cutoff - ESPN changed API structure around 2018-2019
   private readonly API_CUTOFF_YEAR = 2018;
   
-  // Rate limiting - ESPN has rate limits, so we'll space out requests
-  private readonly REQUEST_DELAY = 1000; // 1 second between requests
+  // Rate limiting - ESPN has rate limits, but we can batch requests
+  private readonly REQUEST_DELAY = 100; // Reduced to 100ms between batches
+  private readonly BATCH_SIZE = 5; // Process 5 years concurrently
+  private readonly MAX_CONCURRENT_REQUESTS = 10; // Maximum concurrent requests
+  
+  // Adaptive rate limiting based on API performance
+  private currentDelay = 100;
+  private successfulRequests = 0;
+  private failedRequests = 0;
   
   constructor(private http: HttpClient) {}
 
@@ -73,7 +80,7 @@ export class HistoricalDataService {
     
     console.log(`🏈 Fetching historical data for ${seasons.length} seasons: ${startYear}-${currentYear}`);
     
-    return this.getHistoricalSeasonsData(seasons).pipe(
+    return this.getHistoricalSeasonsDataOptimized(seasons).pipe(
       map(responses => {
         const historicalSeasons: HistoricalSeason[] = [];
         
@@ -99,18 +106,140 @@ export class HistoricalDataService {
   }
 
   /**
-   * Get historical data for specific seasons
+   * Optimized method that prioritizes recent seasons and uses intelligent batching
    */
-  getHistoricalSeasonsData(years: number[]): Observable<APIResponse[]> {
-    const requests = years.map((year, index) => 
-      // Add delay between requests to avoid rate limiting
+  getHistoricalSeasonsDataOptimized(years: number[]): Observable<APIResponse[]> {
+    console.log(`🚀 Processing ${years.length} seasons with priority-based batching`);
+    
+    // Prioritize recent seasons (likely more important to users)
+    const currentYear = new Date().getFullYear();
+    const recentYears = years.filter(year => year >= currentYear - 3).sort((a, b) => b - a);
+    const olderYears = years.filter(year => year < currentYear - 3).sort((a, b) => b - a);
+    
+    console.log(`📊 Priority: ${recentYears.length} recent seasons, ${olderYears.length} older seasons`);
+    
+    // Process recent years first (smaller batches for faster response)
+    const recentBatches = this.createBatches(recentYears, 3); // Smaller batches for recent data
+    const olderBatches = this.createBatches(olderYears, this.BATCH_SIZE);
+    
+    // Combine all batches with recent data processed first
+    const allBatches = [...recentBatches, ...olderBatches];
+    
+    const batchRequests = allBatches.map((batch, batchIndex) => 
       of(null).pipe(
-        delay(index * this.REQUEST_DELAY),
-        mergeMap(() => this.getSeasonData(year))
+        delay(batchIndex * this.getAdaptiveDelay()),
+        mergeMap(() => {
+          const batchType = batchIndex < recentBatches.length ? 'recent' : 'historical';
+          console.log(`📦 Processing ${batchType} batch ${batchIndex + 1}/${allBatches.length}: ${batch.join(', ')} (delay: ${this.currentDelay}ms)`);
+          
+          // Process all years in this batch concurrently
+          const batchRequests = batch.map(year => 
+            this.getSeasonData(year).pipe(
+              tap(() => this.onRequestSuccess()),
+              catchError(error => {
+                this.onRequestFailure();
+                return of({
+                  success: false,
+                  error: error.message,
+                  year,
+                  apiVersion: year < this.API_CUTOFF_YEAR ? 'legacy' as const : 'modern' as const
+                });
+              })
+            )
+          );
+          return forkJoin(batchRequests);
+        })
       )
     );
     
-    return forkJoin(requests);
+    // Combine all batch results
+    return forkJoin(batchRequests).pipe(
+      map(batchResults => batchResults.flat())
+    );
+  }
+
+  /**
+   * Helper method to create batches from array of years
+   */
+  private createBatches(years: number[], batchSize: number): number[][] {
+    const batches: number[][] = [];
+    for (let i = 0; i < years.length; i += batchSize) {
+      batches.push(years.slice(i, i + batchSize));
+    }
+    return batches;
+  }
+
+  /**
+   * Get adaptive delay based on API performance
+   */
+  private getAdaptiveDelay(): number {
+    return this.currentDelay;
+  }
+
+  /**
+   * Handle successful API request - reduce delay
+   */
+  private onRequestSuccess(): void {
+    this.successfulRequests++;
+    
+    // If we're seeing good success rates, gradually reduce delay
+    if (this.successfulRequests % 5 === 0 && this.currentDelay > 50) {
+      this.currentDelay = Math.max(50, this.currentDelay - 25);
+      console.log(`⚡ Reducing delay to ${this.currentDelay}ms (${this.successfulRequests} successful requests)`);
+    }
+  }
+
+  /**
+   * Handle failed API request - increase delay
+   */
+  private onRequestFailure(): void {
+    this.failedRequests++;
+    
+    // If we're seeing failures, increase delay to be more conservative
+    if (this.failedRequests % 2 === 0) {
+      this.currentDelay = Math.min(1000, this.currentDelay + 100);
+      console.log(`🐌 Increasing delay to ${this.currentDelay}ms (${this.failedRequests} failed requests)`);
+    }
+  }
+
+  /**
+   * Reset adaptive rate limiting metrics
+   */
+  private resetRateLimitingMetrics(): void {
+    this.successfulRequests = 0;
+    this.failedRequests = 0;
+    this.currentDelay = this.REQUEST_DELAY;
+  }
+
+  /**
+   * Get historical data for specific seasons with optimized batching
+   */
+  getHistoricalSeasonsData(years: number[]): Observable<APIResponse[]> {
+    console.log(`🚀 Processing ${years.length} seasons in batches of ${this.BATCH_SIZE}`);
+    
+    // Split years into batches for concurrent processing
+    const batches: number[][] = [];
+    for (let i = 0; i < years.length; i += this.BATCH_SIZE) {
+      batches.push(years.slice(i, i + this.BATCH_SIZE));
+    }
+    
+    // Process batches with minimal delay between them
+    const batchRequests = batches.map((batch, batchIndex) => 
+      of(null).pipe(
+        delay(batchIndex * this.REQUEST_DELAY),
+        mergeMap(() => {
+          console.log(`📦 Processing batch ${batchIndex + 1}/${batches.length}: ${batch.join(', ')}`);
+          // Process all years in this batch concurrently
+          const batchRequests = batch.map(year => this.getSeasonData(year));
+          return forkJoin(batchRequests);
+        })
+      )
+    );
+    
+    // Combine all batch results
+    return forkJoin(batchRequests).pipe(
+      map(batchResults => batchResults.flat())
+    );
   }
 
   /**
