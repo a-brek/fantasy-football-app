@@ -1,3 +1,4 @@
+require('dotenv').config(); // Load environment variables from .env file
 const express = require('express');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
@@ -33,32 +34,60 @@ const espnProxy = createProxyMiddleware({
 const historicalModernProxy = createProxyMiddleware({
   target: 'https://lm-api-reads.fantasy.espn.com',
   changeOrigin: true,
-  router: (req) => {
+  pathRewrite: (path, req) => {
     // Extract year from URL path
     const year = req.url.match(/\/historical\/(\d{4})/)?.[1];
-    const view = req.query.view || 'mTeam';
-    if (year) {
-      return `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${LEAGUE_ID}?view=${view}`;
-    }
-    return 'https://lm-api-reads.fantasy.espn.com';
+    const queryParams = new URLSearchParams(req.query).toString();
+    const queryString = queryParams ? `?${queryParams}` : '';
+    return `/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${LEAGUE_ID}${queryString}`;
   },
-  pathRewrite: (path, req) => {
-    // Remove the /api/espn/historical/YYYY part and just return the query params
-    const year = req.url.match(/\/historical\/(\d{4})/)?.[1];
-    const view = req.query.view || 'mTeam';
-    return `/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${LEAGUE_ID}?view=${view}`;
+  headers: {
+    // Add ESPN authentication cookies if available
+    // Users need to provide these from their ESPN login session
+    'Cookie': process.env.ESPN_S2 && process.env.SWID ? 
+      `espn_s2=${process.env.ESPN_S2}; SWID=${process.env.SWID}` : '',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
   },
   onError: (err, req, res) => {
-    console.error('Historical proxy error:', err.message);
-    res.status(500).json({ 
-      error: 'Historical ESPN API request failed', 
-      message: err.message,
-      year: req.url.match(/\/historical\/(\d{4})/)?.[1] || 'unknown'
-    });
+    const year = req.url.match(/\/historical\/(\d{4})/)?.[1];
+    console.error(`Historical proxy error for ${year}:`, err.message);
+    
+    // Handle authentication errors for historical data
+    if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+      const hasAuth = process.env.ESPN_S2 && process.env.SWID;
+      console.log(`🔒 Authentication required for ${year} historical data`);
+      console.log(`   Current auth status: ${hasAuth ? 'Configured' : 'Missing ESPN cookies'}`);
+      
+      res.status(401).json({ 
+        error: 'Authentication required', 
+        message: hasAuth 
+          ? `Historical data for ${year} requires valid ESPN login cookies (cookies may be expired)`
+          : `Historical data for ${year} requires ESPN login authentication. Set ESPN_S2 and SWID environment variables.`,
+        year: year || 'unknown',
+        hasAuthentication: hasAuth,
+        instructions: {
+          step1: 'Log into ESPN Fantasy Football in your browser',
+          step2: 'Open Developer Tools (F12) → Application/Storage → Cookies',
+          step3: 'Find espn_s2 and SWID cookie values',
+          step4: 'Set environment variables: ESPN_S2=<value> SWID=<value>',
+          step5: 'Restart the server'
+        }
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Historical ESPN API request failed', 
+        message: err.message,
+        year: year || 'unknown'
+      });
+    }
   },
   onProxyRes: (proxyRes, req, res) => {
     const year = req.originalUrl.match(/\/historical\/(\d{4})/)?.[1];
     console.log(`Historical ESPN API Response: ${proxyRes.statusCode} for ${year}`);
+    
+    if (proxyRes.statusCode === 401) {
+      console.log(`🔒 Authentication required for ${year} historical data`);
+    }
   }
 });
 
@@ -66,36 +95,61 @@ const historicalModernProxy = createProxyMiddleware({
 const legacyProxy = createProxyMiddleware({
   target: 'https://lm-api-reads.fantasy.espn.com',
   changeOrigin: true,
-  router: (req) => {
+  pathRewrite: (path, req) => {
     // Extract year from URL path
     const year = req.url.match(/\/legacy\/(\d{4})/)?.[1];
-    const view = req.query.view || 'mTeam';
-    if (year) {
-      return `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${LEAGUE_ID}?seasonId=${year}&view=${view}`;
-    }
-    return 'https://lm-api-reads.fantasy.espn.com';
+    const queryParams = new URLSearchParams(req.query).toString();
+    const baseQuery = `seasonId=${year}`;
+    const fullQuery = queryParams ? `${baseQuery}&${queryParams}` : baseQuery;
+    return `/apis/v3/games/ffl/leagueHistory/${LEAGUE_ID}?${fullQuery}`;
   },
-  pathRewrite: (path, req) => {
-    // Remove the /api/espn/legacy/YYYY part 
-    const year = req.url.match(/\/legacy\/(\d{4})/)?.[1];
-    const view = req.query.view || 'mTeam';
-    return `/apis/v3/games/ffl/leagueHistory/${LEAGUE_ID}?seasonId=${year}&view=${view}`;
+  headers: {
+    // Add ESPN authentication cookies for legacy API access
+    'Cookie': process.env.ESPN_S2 && process.env.SWID ? 
+      `espn_s2=${process.env.ESPN_S2}; SWID=${process.env.SWID}` : '',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
   },
   onError: (err, req, res) => {
-    console.error('Legacy proxy error:', err.message);
     const year = req.url.match(/\/legacy\/(\d{4})/)?.[1];
-    console.log(`⚠️ Legacy API failed for ${year} - this is expected as ESPN's legacy API may not be available`);
+    console.error(`Legacy proxy error for ${year}:`, err.message);
     
-    // Return error for legacy years when API is not available
-    res.status(500).json({ 
-      error: 'Legacy ESPN API request failed', 
-      message: err.message,
-      year: year || 'unknown'
-    });
+    // Handle authentication errors for legacy data
+    if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+      const hasAuth = process.env.ESPN_S2 && process.env.SWID;
+      console.log(`🔒 Authentication required for legacy ${year} data`);
+      console.log(`   Current auth status: ${hasAuth ? 'Configured' : 'Missing ESPN cookies'}`);
+      
+      res.status(401).json({ 
+        error: 'Authentication required', 
+        message: hasAuth 
+          ? `Legacy data for ${year} requires valid ESPN login cookies (cookies may be expired)`
+          : `Legacy data for ${year} requires ESPN login authentication. Set ESPN_S2 and SWID environment variables.`,
+        year: year || 'unknown',
+        hasAuthentication: hasAuth,
+        instructions: {
+          step1: 'Log into ESPN Fantasy Football in your browser',
+          step2: 'Open Developer Tools (F12) → Application/Storage → Cookies',
+          step3: 'Find espn_s2 and SWID cookie values',
+          step4: 'Set environment variables: ESPN_S2=<value> SWID=<value>',
+          step5: 'Restart the server'
+        }
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Legacy API request failed',
+        message: `Failed to fetch legacy data for ${year}: ${err.message}`,
+        year: year || 'unknown',
+        suggestion: 'This may be due to authentication requirements or temporary ESPN API issues'
+      });
+    }
   },
   onProxyRes: (proxyRes, req, res) => {
     const year = req.originalUrl.match(/\/legacy\/(\d{4})/)?.[1];
     console.log(`Legacy ESPN API Response: ${proxyRes.statusCode} for ${year}`);
+    
+    if (proxyRes.statusCode === 404) {
+      console.log(`📚 Legacy API data not found for ${year} - may need authentication or data doesn't exist`);
+    }
   }
 });
 
@@ -116,8 +170,27 @@ app.get('/health', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
+  const hasAuth = process.env.ESPN_S2 && process.env.SWID;
+  
   console.log(`🏈 Fantasy Football API Proxy Server running on http://localhost:${PORT}`);
   console.log(`📡 Proxying ESPN Fantasy API calls to avoid CORS issues`);
   console.log(`💡 Frontend should call: http://localhost:${PORT}/api/espn?view=mStandings`);
   console.log(`✅ Health check available at: http://localhost:${PORT}/health`);
+  console.log('');
+  console.log('📋 API Endpoints:');
+  console.log(`   Current Season: /api/espn?view=mTeam`);
+  console.log(`   Historical: /api/espn/historical/2020?view=mTeam`);
+  console.log(`   Legacy: /api/espn/legacy/2015?view=mTeam`);
+  console.log('');
+  
+  if (hasAuth) {
+    console.log('🔑 ESPN Authentication: ✅ CONFIGURED');
+    console.log('   Historical data (2018-2020) should be accessible');
+  } else {
+    console.log('🔑 ESPN Authentication: ❌ NOT CONFIGURED');
+    console.log('   Historical data (2018-2020) will return 401 errors');
+    console.log('   To fix: Set ESPN_S2 and SWID environment variables');
+    console.log('   See: https://github.com/cwendt94/espn-api/discussions/150');
+  }
+  console.log('');
 });

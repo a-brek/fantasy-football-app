@@ -27,7 +27,9 @@
       "Bash(curl:*)",
       "Bash(pkill:*)",
       "Bash(taskkill:*)",
-      "Bash(ng build:*)"
+      "Bash(ng build:*)",
+      "Bash(export:*)",
+      "Bash(export SWID=\"49CF12E7-513C-4ACD-B465-371F5127E2A7\")"
     ],
     "deny": []
   }

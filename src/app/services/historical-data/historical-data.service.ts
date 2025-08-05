@@ -147,13 +147,23 @@ export class HistoricalDataService {
         apiVersion: 'modern' as const
       })),
       catchError(error => {
-        console.warn(`⚠️ No data available for ${year} (league wasn't active or data not accessible)`);
-        return of({
-          success: false,
-          error: error.message || 'Modern API request failed',
-          year,
-          apiVersion: 'modern' as const
-        });
+        if (error.status === 401) {
+          console.warn(`🔒 Authentication required for ${year} - historical data for private leagues needs ESPN login`);
+          return of({
+            success: false,
+            error: `Authentication required for ${year}. Historical data for private leagues requires ESPN login.`,
+            year,
+            apiVersion: 'modern' as const
+          });
+        } else {
+          console.warn(`⚠️ No data available for ${year} (league wasn't active or data not accessible)`);
+          return of({
+            success: false,
+            error: error.message || 'Modern API request failed',
+            year,
+            apiVersion: 'modern' as const
+          });
+        }
       })
     );
   }
@@ -162,13 +172,16 @@ export class HistoricalDataService {
    * Get data using the legacy ESPN API (2010-2017)
    */
   private getLegacySeasonData(year: number): Observable<APIResponse> {
-    // Legacy API uses different structure and endpoints
-    // This is more complex and may require different parameters
+    // Legacy API uses leagueHistory endpoint with different view parameters
     const url = `http://localhost:3001/api/espn/legacy/${year}`;
     
     console.log(`🔗 Fetching legacy API data for ${year}:`, url);
     
-    return this.http.get<any>(url).pipe(
+    return this.http.get<any>(url, {
+      params: {
+        view: 'mMatchup,mTeam,mStandings'  // Use views that work with leagueHistory
+      }
+    }).pipe(
       map(data => ({
         success: true,
         data,
@@ -176,13 +189,31 @@ export class HistoricalDataService {
         apiVersion: 'legacy' as const
       })),
       catchError(error => {
-        console.warn(`⚠️ No legacy data available for ${year}`);
-        return of({
-          success: false,
-          error: error.message || 'Legacy API request failed',
-          year,
-          apiVersion: 'legacy' as const
-        });
+        if (error.status === 401) {
+          console.warn(`🔒 Authentication required for ${year} - private league data needs ESPN login`);
+          return of({
+            success: false,
+            error: `Authentication required for ${year}. Private league historical data requires ESPN login credentials.`,
+            year,
+            apiVersion: 'legacy' as const
+          });
+        } else if (error.status === 404) {
+          console.warn(`📚 Legacy API data not found for ${year} - league may not have existed or data unavailable`);
+          return of({
+            success: false,
+            error: `Legacy data for ${year} not found. League may not have existed in that year or data is unavailable.`,
+            year,
+            apiVersion: 'legacy' as const
+          });
+        } else {
+          console.warn(`⚠️ Legacy API error for ${year}:`, error.message);
+          return of({
+            success: false,
+            error: error.message || 'Legacy API request failed',
+            year,
+            apiVersion: 'legacy' as const
+          });
+        }
       })
     );
   }
