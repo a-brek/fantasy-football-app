@@ -161,6 +161,12 @@ import { Team, ScheduleItem } from '../../models/espn-fantasy.interfaces';
               <div class="action-description">See all weekly matchups</div>
             </a>
             
+            <a routerLink="/head-to-head" class="action-card">
+              <div class="action-icon">🥊</div>
+              <div class="action-title">Head-to-Head</div>
+              <div class="action-description">Compare team rivalry stats</div>
+            </a>
+            
             <a routerLink="/players" class="action-card">
               <div class="action-icon">🏈</div>
               <div class="action-title">Players</div>
