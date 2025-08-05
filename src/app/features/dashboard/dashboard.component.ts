@@ -514,8 +514,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
   });
 
   readonly topTeams = computed(() => {
-    const standings = this.standingsStore.standings();
-    return standings ? standings.slice(0, 6) : [];
+    const teams = this.teamsStore.teams() || [];
+    // Apply the same sorting logic as the standings component
+    const sortedTeams = teams.slice().sort((a, b) => {
+      const aRecord = a.record.overall;
+      const bRecord = b.record.overall;
+      
+      // Calculate total games and win percentage
+      const aTotalGames = aRecord.wins + aRecord.losses + aRecord.ties;
+      const bTotalGames = bRecord.wins + bRecord.losses + bRecord.ties;
+      const aWinPct = aTotalGames > 0 ? (aRecord.wins + aRecord.ties * 0.5) / aTotalGames : 0;
+      const bWinPct = bTotalGames > 0 ? (bRecord.wins + bRecord.ties * 0.5) / bTotalGames : 0;
+      
+      // First sort by win percentage (higher is better)
+      if (Math.abs(aWinPct - bWinPct) > 0.001) {
+        return bWinPct - aWinPct;
+      }
+      
+      // If win percentages are tied, sort by points for (higher is better)
+      return bRecord.pointsFor - aRecord.pointsFor;
+    });
+    
+    return sortedTeams.slice(0, 6);
   });
 
   readonly leagueStatsConfig = computed((): Record<string, StatConfig> => {
@@ -564,25 +584,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private async initializeDashboard(): Promise<void> {
-    // Load all data from stores with proper error handling
-    if (!this.teamsStore.teams()?.length) {
-      this.teamsStore.load().subscribe({
-        next: () => console.log('Teams loaded successfully'),
-        error: (error) => console.warn('Failed to load teams:', error)
-      });
-    }
-    if (!this.matchupsStore.matchups()?.length) {
-      this.matchupsStore.load().subscribe({
-        next: () => console.log('Matchups loaded successfully'),
-        error: (error) => console.warn('Failed to load matchups:', error)
-      });
-    }
-    if (!this.standingsStore.standings()?.length) {
-      this.standingsStore.load().subscribe({
-        next: () => console.log('Standings loaded successfully'),
-        error: (error) => console.warn('Failed to load standings:', error)
-      });
-    }
+    // Load teams first, then other data to ensure team names are available
+    this.teamsStore.load().subscribe({
+      next: () => {
+        console.log('Teams loaded successfully');
+        // Now load matchups and standings
+        if (!this.matchupsStore.matchups()?.length) {
+          this.matchupsStore.load().subscribe({
+            next: () => console.log('Matchups loaded successfully'),
+            error: (error) => console.warn('Failed to load matchups:', error)
+          });
+        }
+        if (!this.standingsStore.standings()?.length) {
+          this.standingsStore.load().subscribe({
+            next: () => console.log('Standings loaded successfully'),
+            error: (error) => console.warn('Failed to load standings:', error)
+          });
+        }
+      },
+      error: (error) => {
+        console.warn('Failed to load teams:', error);
+        // Still try to load other data even if teams fail
+        this.matchupsStore.load().subscribe();
+        this.standingsStore.load().subscribe();
+      }
+    });
   }
 
   async refreshData(): Promise<void> {
@@ -600,7 +626,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getTeamName(teamId: number): string {
     const team = this.teamsStore.getTeamById(teamId);
-    return team?.name || `Team ${teamId}`;
+    if (team?.name) {
+      return team.name;
+    }
+    
+    // If teams aren't loaded yet, try to load them
+    const teams = this.teamsStore.teams();
+    if (!teams || teams.length === 0) {
+      console.log('Teams not loaded, triggering load for team name resolution');
+      this.teamsStore.load().subscribe();
+    }
+    
+    return `Team ${teamId}`;
   }
 
   getTeamRecord(team: Team): string {

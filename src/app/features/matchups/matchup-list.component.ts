@@ -58,6 +58,7 @@ import { TeamsStore } from '../../store/teams.store';
         (retry)="refreshData()"
         (refresh)="refreshData()">
       </app-error-display>
+      
 
       <!-- Matchup Content -->
       <div class="matchup-content" *ngIf="!matchupsStore.isLoading() && !error()">
@@ -66,7 +67,7 @@ import { TeamsStore } from '../../store/teams.store';
         <section class="week-navigation">
           <div class="week-selector">
             <label for="weekSelect">Select Week:</label>
-            <select id="weekSelect" [(ngModel)]="selectedWeek" (change)="updateSelectedWeek($event)">
+            <select id="weekSelect" [value]="selectedWeek()" (change)="updateSelectedWeek($event)">
               <option value="all">All Weeks</option>
               <option *ngFor="let week of availableWeeks()" [value]="week">
                 Week {{ week }}
@@ -744,7 +745,7 @@ import { TeamsStore } from '../../store/teams.store';
 export class MatchupListComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly _isRefreshing = signal(false);
-  private readonly _error = signal<string | null>(null);
+  protected readonly _error = signal<string | null>(null);
   private readonly _selectedWeek = signal<number | 'all'>('all');
   private readonly _showScoreBreakdown = signal(false);
 
@@ -755,9 +756,20 @@ export class MatchupListComponent implements OnInit, OnDestroy {
   // Public signals
   readonly isRefreshing = this._isRefreshing.asReadonly();
   readonly error = computed(() => {
-    const err = this.matchupsStore.error();
-    return err ? String(err) : undefined;
+    // Prioritize local component error over store error
+    const localError = this._error();
+    if (localError) {
+      return localError;
+    }
+    
+    const storeErr = this.matchupsStore.error();
+    if (!storeErr) return null;
+    
+    // ErrorState has structure: { error: string | null, lastError: string | null, ... }
+    return storeErr.error || storeErr.lastError || null;
   });
+
+  readonly errorType = computed(() => typeof this.error());
   readonly showScoreBreakdown = this._showScoreBreakdown.asReadonly();
 
   // Computed properties
@@ -849,13 +861,26 @@ export class MatchupListComponent implements OnInit, OnDestroy {
       }))
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .slice(0, 5);
-    
-    return matchups;
   });
 
   ngOnInit(): void {
-    this.initializeMatchups();
-    this.teamsStore.load();
+    // Clear any existing error state
+    this._error.set(null);
+    
+    console.log('🚀 Matchups component initializing');
+    
+    // Load teams first, then matchups to ensure team names are available
+    this.teamsStore.load().subscribe({
+      next: () => {
+        console.log('Teams loaded, now loading matchups');
+        this.initializeMatchups();
+      },
+      error: (error) => {
+        console.warn('Failed to load teams:', error);
+        // Still try to load matchups even if teams fail
+        this.initializeMatchups();
+      }
+    });
     
     // Set initial week to current week
     const currentWeek = this.matchupsStore.currentWeek();
@@ -869,29 +894,51 @@ export class MatchupListComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private async initializeMatchups(): Promise<void> {
+  private initializeMatchups(): void {
     try {
       this._error.set(null);
       const matchups = this.matchupsStore.matchups();
       if (!matchups || matchups.length === 0) {
-        await this.matchupsStore.load();
+        this.matchupsStore.load().subscribe({
+          next: () => {
+            console.log('Matchups loaded successfully');
+            this._error.set(null); // Clear any error state on success
+            // If matchups loaded, there shouldn't be an error state
+            console.log('Matchups count:', this.matchupsStore.matchups()?.length || 0);
+          },
+          error: (error: any) => {
+            console.warn('Failed to load matchups:', error);            
+            const errorMsg = error?.message || error?.error || 'Failed to load matchups';
+            this._error.set(errorMsg);
+          }
+        });
+      } else {
+        // Clear error if we already have matchups
+        this._error.set(null);
       }
-    } catch (error) {
-      this._error.set(String(error));
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error);
+      this._error.set(errorMsg);
     }
   }
 
-  async refreshData(): Promise<void> {
+  refreshData(): void {
     this._isRefreshing.set(true);
     this._error.set(null);
 
-    try {
-      await this.matchupsStore.load();
-    } catch (error) {
-      this._error.set(String(error));
-    } finally {
-      this._isRefreshing.set(false);
-    }
+    this.matchupsStore.refresh().subscribe({
+      next: () => {
+        console.log('Matchups refreshed successfully');
+        this._error.set(null); // Clear any error state on success
+        this._isRefreshing.set(false);
+      },
+      error: (error: any) => {
+        console.warn('Failed to refresh matchups:', error);
+        const errorMsg = error?.message || error?.error || 'Failed to refresh matchups';
+        this._error.set(errorMsg);
+        this._isRefreshing.set(false);
+      }
+    });
   }
 
   updateSelectedWeek(event: Event): void {
@@ -951,7 +998,18 @@ export class MatchupListComponent implements OnInit, OnDestroy {
 
   getTeamName(teamId: number): string {
     const team = this.teamsStore.getTeamById(teamId);
-    return team?.name || `Team ${teamId}`;
+    if (team?.name) {
+      return team.name;
+    }
+    
+    // If teams aren't loaded yet, try to load them
+    const teams = this.teamsStore.teams();
+    if (!teams || teams.length === 0) {
+      console.log('Teams not loaded, triggering load for team name resolution');
+      this.teamsStore.load().subscribe();
+    }
+    
+    return `Team ${teamId}`;
   }
 
   getTeamAbbrev(teamId: number): string {

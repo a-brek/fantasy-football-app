@@ -39,6 +39,18 @@ import { Team } from '../../models/espn-fantasy.interfaces';
         </div>
       </header>
 
+      <!-- Championship Banner -->
+      <section class="championship-banner">
+        <div class="champion-card">
+          <div class="champion-icon">🏆</div>
+          <div class="champion-info">
+            <h2 class="champion-title">2024 Fantasy Football Champion</h2>
+            <h3 class="champion-name">Chasing Greatness</h3>
+            <p class="champion-subtitle">Congratulations on an outstanding season!</p>
+          </div>
+        </div>
+      </section>
+
       <!-- Loading State -->
       <app-loading-spinner 
         *ngIf="isRefreshing()"
@@ -60,7 +72,7 @@ import { Team } from '../../models/espn-fantasy.interfaces';
       </app-error-display>
 
       <!-- Standings Content -->
-      <div class="standings-content" *ngIf="!isRefreshing() && !error()">
+      <div class="standings-content" *ngIf="showContent()">
         
         <!-- League Overview Stats -->
         <section class="league-overview">
@@ -119,6 +131,12 @@ import { Team } from '../../models/espn-fantasy.interfaces';
           </div>
         </section>
 
+        <!-- Final Standings Section -->
+        <section class="final-standings-section">
+          <h2>🏁 Final 2024 Season Standings</h2>
+          <p class="season-summary">Season completed - Final rankings based on overall record and total points scored</p>
+        </section>
+
         <!-- Standings Table -->
         <section class="standings-table-section">
           <div class="standings-table" [class.detailed]="showDetailedStats">
@@ -145,8 +163,9 @@ import { Team } from '../../models/espn-fantasy.interfaces';
             </div>
 
             <!-- Team Rows -->
-            <div class="team-row" 
-                 *ngFor="let team of sortedTeams(); let i = index; trackBy: trackByTeam"
+            <div *ngIf="sortedTeams().length > 0; else noTeamsTemplate">
+              <div class="team-row" 
+                   *ngFor="let team of sortedTeams(); let i = index; trackBy: trackByTeam"
                  [class]="getTeamRowClass(team, i + 1)"
                  (click)="selectTeam(team)">
               
@@ -220,6 +239,16 @@ import { Team } from '../../models/espn-fantasy.interfaces';
                 </button>
               </div>
             </div>
+            </div>
+
+            <!-- No Teams Template -->
+            <ng-template #noTeamsTemplate>
+              <div class="no-teams-message">
+                <h3>No teams data available</h3>
+                <p>Teams data is still loading or there was an error loading the standings.</p>
+                <button class="btn btn-primary" (click)="refreshData()">Try Again</button>
+              </div>
+            </ng-template>
 
           </div>
         </section>
@@ -316,6 +345,36 @@ import { Team } from '../../models/espn-fantasy.interfaces';
           </div>
         </section>
 
+        <!-- Historical Winners Section -->
+        <section class="historical-winners">
+          <h2>🏆 League Championship History</h2>
+          <div class="winners-grid">
+            <div class="winner-card current-winner">
+              <div class="winner-year">2024</div>
+              <div class="winner-name">Chasing Greatness</div>
+              <div class="winner-badge">👑 Current Champion</div>
+            </div>
+            <div class="winner-card">
+              <div class="winner-year">2023</div>
+              <div class="winner-name">TBD</div>
+              <div class="winner-note">Historical data to be added</div>
+            </div>
+            <div class="winner-card">
+              <div class="winner-year">2022</div>
+              <div class="winner-name">TBD</div>
+              <div class="winner-note">Historical data to be added</div>
+            </div>
+            <div class="winner-card">
+              <div class="winner-year">2021</div>
+              <div class="winner-name">TBD</div>
+              <div class="winner-note">Historical data to be added</div>
+            </div>
+          </div>
+          <div class="add-history-note">
+            <p><em>Historical championship data can be updated by adding previous winners to the component.</em></p>
+          </div>
+        </section>
+
       </div>
     </div>
   `,
@@ -383,6 +442,70 @@ import { Team } from '../../models/espn-fantasy.interfaces';
       font-size: 0.875em;
     }
     
+    /* Championship Banner */
+    .championship-banner {
+      margin-bottom: 30px;
+    }
+    
+    .champion-card {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      border: 2px solid #ffd700;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+      text-align: left;
+    }
+    
+    .champion-icon {
+      font-size: 3em;
+      filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+    }
+    
+    .champion-title {
+      margin: 0 0 8px 0;
+      font-size: 1.5em;
+      font-weight: 700;
+      color: #8b4513;
+    }
+    
+    .champion-name {
+      margin: 0 0 8px 0;
+      font-size: 2em;
+      font-weight: 800;
+      color: #8b4513;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .champion-subtitle {
+      margin: 0;
+      font-size: 1.1em;
+      color: #8b4513;
+      font-style: italic;
+    }
+    
+    /* Final Standings Section */
+    .final-standings-section {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .final-standings-section h2 {
+      margin: 0 0 8px 0;
+      font-size: 1.8em;
+      font-weight: 700;
+      color: var(--primary-color, #007bff);
+    }
+    
+    .season-summary {
+      margin: 0;
+      font-size: 1.1em;
+      color: var(--text-muted, #888);
+      font-style: italic;
+    }
+
     /* League Overview */
     .league-overview {
       margin-bottom: 30px;
@@ -525,6 +648,25 @@ import { Team } from '../../models/espn-fantasy.interfaces';
     .team-row.selected {
       background: var(--selected-background, #e3f2fd);
       border-color: var(--primary-color, #007bff);
+    }
+    
+    .team-row.champion-row {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      border: 2px solid #ffd700;
+      box-shadow: 0 2px 12px rgba(255, 215, 0, 0.3);
+      font-weight: 600;
+    }
+    
+    .team-row.champion-row .rank-number {
+      color: #8b4513;
+      font-size: 1.2em;
+      font-weight: 800;
+    }
+    
+    .team-row.champion-row .team-name {
+      color: #8b4513;
+      font-weight: 800;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
     }
     
     /* Team Info */
@@ -865,6 +1007,116 @@ import { Team } from '../../models/espn-fantasy.interfaces';
         gap: 4px;
       }
     }
+    
+    .no-teams-message {
+      text-align: center;
+      padding: 60px 20px;
+      background: var(--card-background, #ffffff);
+      border: 1px solid var(--card-border, #e0e0e0);
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .no-teams-message h3 {
+      margin: 0 0 16px 0;
+      color: var(--text-primary, #333);
+    }
+    
+    .no-teams-message p {
+      margin: 0 0 24px 0;
+      color: var(--text-muted, #888);
+    }
+    
+    /* Historical Winners */
+    .historical-winners {
+      margin-top: 40px;
+    }
+    
+    .historical-winners h2 {
+      margin: 0 0 24px 0;
+      color: var(--text-primary, #333);
+      font-size: 1.8em;
+      font-weight: 700;
+      text-align: center;
+    }
+    
+    .winners-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .winner-card {
+      background: var(--card-background, #ffffff);
+      border: 2px solid var(--card-border, #e0e0e0);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .winner-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+    
+    .winner-card.current-winner {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      border-color: #ffd700;
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+    }
+    
+    .winner-year {
+      font-size: 1.2em;
+      font-weight: 700;
+      color: var(--primary-color, #007bff);
+      margin-bottom: 8px;
+    }
+    
+    .current-winner .winner-year {
+      color: #8b4513;
+    }
+    
+    .winner-name {
+      font-size: 1.4em;
+      font-weight: 800;
+      color: var(--text-primary, #333);
+      margin-bottom: 8px;
+    }
+    
+    .current-winner .winner-name {
+      color: #8b4513;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .winner-badge {
+      font-size: 0.9em;
+      font-weight: 600;
+      color: #8b4513;
+      background: rgba(139, 69, 19, 0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    
+    .winner-note {
+      font-size: 0.85em;
+      color: var(--text-muted, #888);
+      font-style: italic;
+    }
+    
+    .add-history-note {
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .add-history-note p {
+      margin: 0;
+      font-size: 0.9em;
+      color: var(--text-muted, #888);
+    }
   `]
 })
 export class StandingsComponent implements OnInit, OnDestroy {
@@ -882,19 +1134,16 @@ export class StandingsComponent implements OnInit, OnDestroy {
   private readonly teamsStore = inject(TeamsStore);
   
   constructor() {
-    // Initialize stores on component creation
-    this.standingsStore.load();
-    this.teamsStore.load();
+    // Teams will be loaded in ngOnInit
   }
 
   // Public signals
   readonly isRefreshing = computed(() => {
-    return this.standingsStore.isRefreshing() || this.teamsStore.isRefreshing() || this._isRefreshing();
+    return this.teamsStore.isRefreshing() || this._isRefreshing();
   });
   readonly error = computed(() => {
-    const standingsError = this.standingsStore.error();
     const teamsError = this.teamsStore.error();
-    return standingsError?.error || teamsError?.error || this._error();
+    return teamsError?.error || this._error();
   });
   readonly sortBy = this._sortBy.asReadonly();
   readonly showPlayoffPositions = this._showPlayoffPositions.asReadonly();
@@ -903,12 +1152,45 @@ export class StandingsComponent implements OnInit, OnDestroy {
   readonly playoffCutoff = this._playoffCutoff.asReadonly();
 
   // Computed properties
+  readonly showContent = computed(() => {
+    const teams = this.sortedTeams();
+    const isLoading = this.isRefreshing();
+    const hasError = this.error();
+    
+    // Show content if we have teams, or if not loading and no error
+    return teams.length > 0 || (!isLoading && !hasError);
+  });
   readonly sortedTeams = computed(() => {
-    const teams = this.standingsStore.standings() || [];
+    const teams = this.teamsStore.teams() || []; // Direct from TeamsStore
     const sortBy = this._sortBy();
 
     if (sortBy === 'standings') {
-      return teams; // Already sorted by standings in dataService
+      // Sort by fantasy football standings rules:
+      // 1. Win percentage (wins / total games)
+      // 2. If tied, then by points for (higher is better)
+      return teams.slice().sort((a, b) => {
+        const aRecord = a.record.overall;
+        const bRecord = b.record.overall;
+        
+        // Calculate total games and win percentage
+        const aTotalGames = aRecord.wins + aRecord.losses + aRecord.ties;
+        const bTotalGames = bRecord.wins + bRecord.losses + bRecord.ties;
+        const aWinPct = aTotalGames > 0 ? (aRecord.wins + aRecord.ties * 0.5) / aTotalGames : 0;
+        const bWinPct = bTotalGames > 0 ? (bRecord.wins + bRecord.ties * 0.5) / bTotalGames : 0;
+        
+        // First sort by win percentage (higher is better)
+        if (Math.abs(aWinPct - bWinPct) > 0.001) { // Use small epsilon for floating point comparison
+          return bWinPct - aWinPct;
+        }
+        
+        // If win percentages are tied, sort by points for (higher is better)
+        return bRecord.pointsFor - aRecord.pointsFor;
+      }).map((team, index) => {
+        // Log the final standings order for debugging (only first time)
+        if (index === 0) console.log('📊 Fantasy Football Standings (Record, Points For):');
+        console.log(`  #${index + 1}: ${team.name} (${team.record.overall.wins}-${team.record.overall.losses}, ${team.record.overall.pointsFor.toFixed(1)} pts)`);
+        return team;
+      });
     }
 
     return teams.slice().sort((a, b) => {
@@ -922,7 +1204,17 @@ export class StandingsComponent implements OnInit, OnDestroy {
           const bDiff = b.record.overall.pointsFor - b.record.overall.pointsAgainst;
           return bDiff - aDiff;
         case 'winPct':
-          return b.record.overall.percentage - a.record.overall.percentage;
+          const aWinPct = a.record.overall.wins + a.record.overall.losses + a.record.overall.ties > 0 
+            ? (a.record.overall.wins + a.record.overall.ties * 0.5) / (a.record.overall.wins + a.record.overall.losses + a.record.overall.ties) 
+            : 0;
+          const bWinPct = b.record.overall.wins + b.record.overall.losses + b.record.overall.ties > 0 
+            ? (b.record.overall.wins + b.record.overall.ties * 0.5) / (b.record.overall.wins + b.record.overall.losses + b.record.overall.ties) 
+            : 0;
+          // If win percentages are tied, use points for as tiebreaker
+          if (Math.abs(aWinPct - bWinPct) > 0.001) {
+            return bWinPct - aWinPct;
+          }
+          return b.record.overall.pointsFor - a.record.overall.pointsFor;
         case 'name':
           return a.name.localeCompare(b.name);
         default:
@@ -932,7 +1224,7 @@ export class StandingsComponent implements OnInit, OnDestroy {
   });
 
   readonly leagueStats = computed((): Record<string, StatConfig> => {
-    const teams = this.standingsStore.standings() || [];
+    const teams = this.teamsStore.teams() || [];
     
     if (teams.length === 0) {
       return {
@@ -1039,7 +1331,10 @@ export class StandingsComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.initializeStandings();
+    // Give a small delay to ensure other components have initialized
+    setTimeout(() => {
+      this.initializeStandings();
+    }, 100);
   }
 
   ngOnDestroy(): void {
@@ -1050,16 +1345,35 @@ export class StandingsComponent implements OnInit, OnDestroy {
   private async initializeStandings(): Promise<void> {
     try {
       this._error.set(null);
-      const standings = this.standingsStore.standings();
-      if (!standings || standings.length === 0) {
-        this.standingsStore.load().subscribe({
-          error: (error) => {
-            console.warn('Failed to load standings:', error);
-            this._error.set('Failed to load standings data');
+      console.log('🏆 Initializing standings...');
+      
+      // Always load teams data to ensure we have fresh data
+      console.log('🏆 Loading teams data...');
+      this.teamsStore.refresh().subscribe({
+        next: () => {
+          console.log('🏆 Teams loaded successfully');
+          const teams = this.teamsStore.teams();
+          console.log('🏆 Teams count after load:', teams?.length || 0);
+          
+          // If still no teams after a short delay, try again
+          if (!teams || teams.length === 0) {
+            console.log('🏆 No teams found, trying again in 1 second...');
+            setTimeout(() => {
+              const retryTeams = this.teamsStore.teams();
+              if (!retryTeams || retryTeams.length === 0) {
+                console.log('🏆 Still no teams, forcing refresh...');
+                this.refreshData();
+              }
+            }, 1000);
           }
-        });
-      }
+        },
+        error: (error) => {
+          console.warn('Failed to load teams:', error);
+          this._error.set('Failed to load teams data');
+        }
+      });
     } catch (error) {
+      console.error('Error initializing standings:', error);
       this._error.set('Failed to initialize standings');
     }
   }
@@ -1068,14 +1382,14 @@ export class StandingsComponent implements OnInit, OnDestroy {
     this._isRefreshing.set(true);
     this._error.set(null);
 
-    this.standingsStore.refresh().subscribe({
+    this.teamsStore.refresh().subscribe({
       next: () => {
-        console.log('Standings refreshed successfully');
+        console.log('Teams refreshed successfully');
         this._isRefreshing.set(false);
       },
       error: (error) => {
-        console.warn('Failed to refresh standings:', error);
-        this._error.set('Failed to refresh standings data');
+        console.warn('Failed to refresh teams:', error);
+        this._error.set('Failed to refresh teams data');
         this._isRefreshing.set(false);
       }
     });
@@ -1111,6 +1425,11 @@ export class StandingsComponent implements OnInit, OnDestroy {
 
   getTeamRowClass(team: Team, rank: number): string {
     const classes = [];
+    
+    // Highlight the champion (1st place)
+    if (rank === 1) {
+      classes.push('champion-row');
+    }
     
     if (this._showPlayoffPositions() && rank <= this._playoffCutoff()) {
       classes.push('playoff-position');
