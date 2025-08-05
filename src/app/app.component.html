@@ -1,29 +1,22 @@
-<div class="app-container" style="margin: 0 auto; background-color: #e0e0e0; padding: 20px; font-family: 'Times New Roman', serif;">
-  <div class="header" style="text-align: center; background-color: #333; padding: 10px; border-bottom: 4px solid black;">
-    <h1 style="color: white; font-size: 50px; text-transform: uppercase; letter-spacing: 2px;">OGFF</h1>
-    <marquee style="background-color: #555; color: white; font-size: 18px;">Vick Sucks!!</marquee>
-  </div>
-
-  <div class="main-content" style="margin-top: 20px;">
-    <div class="row">
-      <div class="col-md-6">
-        <app-matchups></app-matchups>
-      </div>
-      <div class="col-md-6">
-        <div>
-          <app-standings></app-standings>
-        </div>
-  
-        <div>
-          <app-roster></app-roster>
-        </div>
-      </div>
+<div class="app-container">
+  <header class="app-header">
+    <div class="header-content">
+      <h1 class="app-title">OG Fantasy Football</h1>
+      <nav class="main-nav">
+        <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">Dashboard</a>
+        <a routerLink="/standings" routerLinkActive="active" class="nav-link">Standings</a>
+        <a routerLink="/matchups" routerLinkActive="active" class="nav-link">Matchups</a>
+        <a routerLink="/teams" routerLinkActive="active" class="nav-link">Teams</a>
+        <a routerLink="/players" routerLinkActive="active" class="nav-link">Players</a>
+      </nav>
     </div>
-  </div>
+  </header>
 
-  <div class="footer" style="text-align: center; margin-top: 20px; background-color: #333; padding: 10px;">
-    <p style="color: white; font-size: 14px;">© OG Fantasy Football
-      
-    </p>
-  </div>
+  <main class="app-main">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="app-footer">
+    <p>&copy; {{ currentYear }} OG Fantasy Football</p>
+  </footer>
 </div>

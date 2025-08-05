@@ -1,6 +1,18 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AppError, ErrorType } from '../../core/services/error-handler.service';
+// ErrorType and AppError defined locally now
+export enum ErrorType {
+  NETWORK = 'network',
+  HTTP_CLIENT = 'http_client', 
+  SERVER = 'server',
+  VALIDATION = 'validation',
+  AUTHENTICATION = 'auth',
+  AUTHORIZATION = 'authorization',
+  NOT_FOUND = 'not_found',
+  TIMEOUT = 'timeout',
+  UNKNOWN = 'unknown'
+}
+export interface AppError { type: ErrorType; message: string; statusCode?: number; details?: any; userMessage?: string; }
 
 /**
  * Reusable error display component for showing error messages
@@ -435,7 +447,7 @@ export class ErrorDisplayComponent {
     ];
 
     return retryableTypes.includes(errorData.type) || 
-           (errorData.statusCode && errorData.statusCode >= 500);
+           Boolean(errorData.statusCode && errorData.statusCode >= 500);
   }
 
   getErrorDetails(): string {

@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil, catchError, of } from 'rxjs';
 
-import { DataService } from '../../core/services/data.service';
-import { ErrorHandlerService } from '../../core/services/error-handler.service';
+import { TeamsStore } from '../../store/teams.store';
+import { MatchupsStore } from '../../store/matchups.store';
+import { StandingsStore } from '../../store/standings.store';
+import { AppStore } from '../../store/app.store';
 import { TeamCardComponent } from '../../shared/components/team-card.component';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
@@ -41,11 +43,11 @@ import { Team, ScheduleItem } from '../../models/espn-fantasy.interfaces';
 
       <!-- Loading State -->
       <app-loading-spinner 
-        *ngIf="dataService.isLoading()"
+        *ngIf="isRefreshing()"
         type="circle"
         size="large"
         message="Loading dashboard data..."
-        showMessage="true"
+        [showMessage]="true"
         layout="inline">
       </app-loading-spinner>
 
@@ -60,32 +62,32 @@ import { Team, ScheduleItem } from '../../models/espn-fantasy.interfaces';
       </app-error-display>
 
       <!-- Dashboard Content -->
-      <div class="dashboard-content" *ngIf="!dataService.isLoading() && !error()">
+      <div class="dashboard-content" *ngIf="!isRefreshing() && !error()">
         
         <!-- League Overview Stats -->
         <section class="league-overview">
           <h2>League Overview</h2>
           <div class="stats-grid">
             <app-stat-display 
-              [stat]="leagueStatsConfig().totalTeams"
+              [stat]="leagueStatsConfig()['totalTeams']"
               size="medium"
               variant="card">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="leagueStatsConfig().currentWeek"
+              [stat]="leagueStatsConfig()['currentWeek']"
               size="medium"
               variant="highlighted">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="leagueStatsConfig().avgPointsPerTeam"
+              [stat]="leagueStatsConfig()['avgPointsPerTeam']"
               size="medium"
               variant="card">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="leagueStatsConfig().totalPointsScored"
+              [stat]="leagueStatsConfig()['totalPointsScored']"
               size="medium"
               variant="card">
             </app-stat-display>
@@ -94,7 +96,7 @@ import { Team, ScheduleItem } from '../../models/espn-fantasy.interfaces';
 
         <!-- Current Week Matchups -->
         <section class="current-matchups">
-          <h2>Week {{ dataService.currentWeek() }} Matchups</h2>
+          <h2>Week {{ currentWeek() }} Matchups</h2>
           <div class="matchups-grid" *ngIf="currentMatchups().length > 0; else noMatchups">
             <div class="matchup-card" *ngFor="let matchup of currentMatchups()">
               <div class="matchup-teams">
@@ -481,26 +483,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private readonly _isRefreshing = signal(false);
   private readonly _error = signal<string | null>(null);
 
-  // Inject services
-  protected readonly dataService = inject(DataService);
-  private readonly errorHandler = inject(ErrorHandlerService);
+  // Inject stores
+  private readonly teamsStore = inject(TeamsStore);
+  private readonly matchupsStore = inject(MatchupsStore);
+  private readonly standingsStore = inject(StandingsStore);
+  private readonly appStore = inject(AppStore);
 
   // Public signals
-  readonly isRefreshing = this._isRefreshing.asReadonly();
-  readonly error = this._error.asReadonly();
+  readonly isRefreshing = computed(() => {
+    return this.teamsStore.isRefreshing() || this.matchupsStore.isRefreshing() || this.standingsStore.isRefreshing();
+  });
+  readonly error = computed(() => {
+    const teamsError = this.teamsStore.error();
+    const matchupsError = this.matchupsStore.error();
+    const standingsError = this.standingsStore.error();
+    
+    if (teamsError?.error) return teamsError.error;
+    if (matchupsError?.error) return matchupsError.error;
+    if (standingsError?.error) return standingsError.error;
+    return undefined;
+  });
 
   // Computed properties
+  readonly currentWeek = computed(() => {
+    return this.matchupsStore.currentWeek() || 1;
+  });
+
   readonly currentMatchups = computed(() => {
-    return this.dataService.currentWeekMatchups();
+    return this.matchupsStore.currentWeekMatchups() || [];
   });
 
   readonly topTeams = computed(() => {
-    return this.dataService.standings().slice(0, 6);
+    const standings = this.standingsStore.standings();
+    return standings ? standings.slice(0, 6) : [];
   });
 
   readonly leagueStatsConfig = computed((): Record<string, StatConfig> => {
-    const teams = this.dataService.teams();
-    const league = this.dataService.league();
+    const teams = this.teamsStore.teams() || [];
     
     const totalPoints = teams.reduce((sum, team) => sum + team.record.overall.pointsFor, 0);
     const avgPoints = teams.length > 0 ? totalPoints / teams.length : 0;
@@ -514,7 +533,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       currentWeek: {
         label: 'Current Week',
-        value: this.dataService.currentWeek(),
+        value: this.currentWeek(),
         format: 'number',
         icon: '📅'
       },
@@ -545,31 +564,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private async initializeDashboard(): Promise<void> {
-    try {
-      this._error.set(null);
-      await this.dataService.initializeData();
-    } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+    // Load all data from stores
+    if (!this.teamsStore.teams()?.length) {
+      this.teamsStore.load().subscribe();
+    }
+    if (!this.matchupsStore.matchups()?.length) {
+      this.matchupsStore.load().subscribe();
+    }
+    if (!this.standingsStore.standings()?.length) {
+      this.standingsStore.load().subscribe();
     }
   }
 
   async refreshData(): Promise<void> {
-    this._isRefreshing.set(true);
-    this._error.set(null);
-
-    try {
-      await this.dataService.refreshData();
-    } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
-    } finally {
-      this._isRefreshing.set(false);
-    }
+    // Refresh all data
+    this.teamsStore.refresh().subscribe();
+    this.matchupsStore.refresh().subscribe();
+    this.standingsStore.refresh().subscribe();
   }
 
   getTeamName(teamId: number): string {
-    const team = this.dataService.getTeamById(teamId);
+    const teams = this.teamsStore.teams();
+    const team = teams?.find(t => t.id === teamId);
     return team?.name || `Team ${teamId}`;
   }
 

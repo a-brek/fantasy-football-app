@@ -4,12 +4,12 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-import { DataService } from '../../core/services/data.service';
-import { ErrorHandlerService } from '../../core/services/error-handler.service';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
 import { ErrorDisplayComponent } from '../../shared/components/error-display.component';
 import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
+import { MatchupsStore } from '../../store/matchups.store';
+import { TeamsStore } from '../../store/teams.store';
 
 /**
  * Matchup list component for displaying all league matchups
@@ -41,11 +41,11 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
 
       <!-- Loading State -->
       <app-loading-spinner 
-        *ngIf="dataService.isLoadingMatchups()"
+        *ngIf="matchupsStore.isLoading()"
         type="circle"
         size="large"
         message="Loading matchups..."
-        showMessage="true"
+        [showMessage]="true"
         layout="inline">
       </app-loading-spinner>
 
@@ -60,7 +60,7 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
       </app-error-display>
 
       <!-- Matchup Content -->
-      <div class="matchup-content" *ngIf="!dataService.isLoadingMatchups() && !error()">
+      <div class="matchup-content" *ngIf="!matchupsStore.isLoading() && !error()">
         
         <!-- Week Navigation -->
         <section class="week-navigation">
@@ -93,29 +93,29 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
         </section>
 
         <!-- Week Summary Stats -->
-        <section class="week-summary" *ngIf="selectedWeek !== 'all'">
-          <h2>Week {{ selectedWeek }} Summary</h2>
+        <section class="week-summary" *ngIf="selectedWeek() !== 'all'">
+          <h2>Week {{ selectedWeek() }} Summary</h2>
           <div class="summary-stats">
             <app-stat-display 
-              [stat]="weekStats().totalMatchups"
+              [stat]="weekStats()['totalMatchups']"
               size="medium"
               variant="card">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="weekStats().completedMatchups"
+              [stat]="weekStats()['completedMatchups']"
               size="medium"
               variant="success">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="weekStats().highestScore"
+              [stat]="weekStats()['highestScore']"
               size="medium"
               variant="highlighted">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="weekStats().averageScore"
+              [stat]="weekStats()['averageScore']"
               size="medium"
               variant="card">
             </app-stat-display>
@@ -124,8 +124,8 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
 
         <!-- Matchups Grid -->
         <section class="matchups-section">
-          <h2 *ngIf="selectedWeek === 'all'">All Matchups</h2>
-          <h2 *ngIf="selectedWeek !== 'all'">Week {{ selectedWeek }} Matchups</h2>
+          <h2 *ngIf="selectedWeek() === 'all'">All Matchups</h2>
+          <h2 *ngIf="selectedWeek() !== 'all'">Week {{ selectedWeek() }} Matchups</h2>
           
           <div class="matchups-grid" *ngIf="displayedMatchups().length > 0; else noMatchups">
             <div class="matchup-card" 
@@ -161,7 +161,7 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
                     </div>
                   </div>
                   <div class="team-score">
-                    <span class="score-value">{{ matchup.away.totalPoints | number:'1.1-1' }}</span>
+                    <span class="score-value">{{ (matchup.away?.totalPoints || 0) | number:'1.1-1' }}</span>
                     <span class="score-label">points</span>
                   </div>
                 </div>
@@ -188,7 +188,7 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
                     </div>
                   </div>
                   <div class="team-score">
-                    <span class="score-value">{{ matchup.home.totalPoints | number:'1.1-1' }}</span>
+                    <span class="score-value">{{ (matchup.home?.totalPoints || 0) | number:'1.1-1' }}</span>
                     <span class="score-label">points</span>
                   </div>
                 </div>
@@ -226,7 +226,7 @@ import { ScheduleItem, Team } from '../../models/espn-fantasy.interfaces';
         </section>
 
         <!-- League Matchup Trends (All weeks view) -->
-        <section class="matchup-trends" *ngIf="selectedWeek === 'all'">
+        <section class="matchup-trends" *ngIf="selectedWeek() === 'all'">
           <h2>Season Trends</h2>
           <div class="trends-grid">
             <div class="trend-card">
@@ -748,26 +748,31 @@ export class MatchupListComponent implements OnInit, OnDestroy {
   private readonly _selectedWeek = signal<number | 'all'>('all');
   private readonly _showScoreBreakdown = signal(false);
 
-  // Inject services
-  protected readonly dataService = inject(DataService);
-  private readonly errorHandler = inject(ErrorHandlerService);
+  // Inject stores
+  protected readonly matchupsStore = inject(MatchupsStore);
+  protected readonly teamsStore = inject(TeamsStore);
 
   // Public signals
   readonly isRefreshing = this._isRefreshing.asReadonly();
-  readonly error = this._error.asReadonly();
+  readonly error = computed(() => {
+    const err = this.matchupsStore.error();
+    return err ? String(err) : undefined;
+  });
   readonly showScoreBreakdown = this._showScoreBreakdown.asReadonly();
 
   // Computed properties
   readonly selectedWeek = computed(() => this._selectedWeek());
 
   readonly availableWeeks = computed(() => {
-    const matchups = this.dataService.matchups();
+    const matchups = this.matchupsStore.matchups();
+    if (!matchups) return [];
     const weeks = [...new Set(matchups.map(m => m.matchupPeriodId))];
     return weeks.sort((a, b) => a - b);
   });
 
   readonly displayedMatchups = computed(() => {
-    const matchups = this.dataService.matchups();
+    const matchups = this.matchupsStore.matchups();
+    if (!matchups) return [];
     const selectedWeek = this._selectedWeek();
     
     if (selectedWeek === 'all') {
@@ -787,7 +792,7 @@ export class MatchupListComponent implements OnInit, OnDestroy {
     const weekMatchups = this.displayedMatchups();
     const completedMatchups = weekMatchups.filter(m => m.winner);
     
-    const scores = weekMatchups.flatMap(m => [m.away.totalPoints, m.home.totalPoints]);
+    const scores = weekMatchups.flatMap(m => [(m.away?.totalPoints || 0), (m.home?.totalPoints || 0)]);
     const highestScore = scores.length > 0 ? Math.max(...scores) : 0;
     const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
@@ -822,23 +827,25 @@ export class MatchupListComponent implements OnInit, OnDestroy {
   });
 
   readonly closestMatchups = computed(() => {
-    const matchups = this.dataService.matchups()
+    const matchups = this.matchupsStore.matchups();
+    if (!matchups) return [];
+    return matchups
       .filter(m => m.winner) // Only completed matchups
       .map(m => ({
         ...m,
-        pointDifference: Math.abs(m.home.totalPoints - m.away.totalPoints)
+        pointDifference: Math.abs((m.home?.totalPoints || 0) - (m.away?.totalPoints || 0))
       }))
       .sort((a, b) => a.pointDifference - b.pointDifference)
       .slice(0, 5);
-    
-    return matchups;
   });
 
   readonly highestScoringMatchups = computed(() => {
-    const matchups = this.dataService.matchups()
+    const matchups = this.matchupsStore.matchups();
+    if (!matchups) return [];
+    return matchups
       .map(m => ({
         ...m,
-        totalPoints: m.home.totalPoints + m.away.totalPoints
+        totalPoints: (m.home?.totalPoints || 0) + (m.away?.totalPoints || 0)
       }))
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .slice(0, 5);
@@ -848,9 +855,10 @@ export class MatchupListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initializeMatchups();
+    this.teamsStore.load();
     
     // Set initial week to current week
-    const currentWeek = this.dataService.currentWeek();
+    const currentWeek = this.matchupsStore.currentWeek();
     if (currentWeek > 0) {
       this._selectedWeek.set(currentWeek);
     }
@@ -864,12 +872,12 @@ export class MatchupListComponent implements OnInit, OnDestroy {
   private async initializeMatchups(): Promise<void> {
     try {
       this._error.set(null);
-      if (this.dataService.matchups().length === 0) {
-        await this.dataService.loadMatchups();
+      const matchups = this.matchupsStore.matchups();
+      if (!matchups || matchups.length === 0) {
+        await this.matchupsStore.load();
       }
     } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+      this._error.set(String(error));
     }
   }
 
@@ -878,10 +886,9 @@ export class MatchupListComponent implements OnInit, OnDestroy {
     this._error.set(null);
 
     try {
-      await this.dataService.loadMatchups();
+      await this.matchupsStore.load();
     } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+      this._error.set(String(error));
     } finally {
       this._isRefreshing.set(false);
     }
@@ -938,27 +945,27 @@ export class MatchupListComponent implements OnInit, OnDestroy {
   }
 
   goToCurrentWeek(): void {
-    const currentWeek = this.dataService.currentWeek();
+    const currentWeek = this.matchupsStore.currentWeek();
     this._selectedWeek.set(currentWeek);
   }
 
   getTeamName(teamId: number): string {
-    const team = this.dataService.getTeamById(teamId);
+    const team = this.teamsStore.getTeamById(teamId);
     return team?.name || `Team ${teamId}`;
   }
 
   getTeamAbbrev(teamId: number): string {
-    const team = this.dataService.getTeamById(teamId);
+    const team = this.teamsStore.getTeamById(teamId);
     return team?.abbrev || `T${teamId}`;
   }
 
   getTeamLogo(teamId: number): string {
-    const team = this.dataService.getTeamById(teamId);
+    const team = this.teamsStore.getTeamById(teamId);
     return team?.logo || '';
   }
 
   getTeamRecord(teamId: number): string {
-    const team = this.dataService.getTeamById(teamId);
+    const team = this.teamsStore.getTeamById(teamId);
     if (!team) return '0-0';
     
     const record = team.record.overall;
@@ -987,11 +994,11 @@ export class MatchupListComponent implements OnInit, OnDestroy {
   }
 
   getPointDifference(matchup: ScheduleItem): number {
-    return Math.abs(matchup.home.totalPoints - matchup.away.totalPoints);
+    return Math.abs((matchup.home?.totalPoints || 0) - (matchup.away?.totalPoints || 0));
   }
 
   getTotalPoints(matchup: ScheduleItem): number {
-    return matchup.home.totalPoints + matchup.away.totalPoints;
+    return (matchup.home?.totalPoints || 0) + (matchup.away?.totalPoints || 0);
   }
 
   viewMatchupDetails(matchup: ScheduleItem): void {

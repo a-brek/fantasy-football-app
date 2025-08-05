@@ -12,7 +12,7 @@ import { Team } from '../../models/espn-fantasy.interfaces';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="team-card" [class.selected]="isSelected()" (click)="onCardClick()">
+    <div class="team-card" [class.selected]="isSelected" (click)="onCardClick()">
       <div class="team-header">
         <div class="team-logo">
           <img [src]="teamData().logo" [alt]="teamData().name + ' logo'" 
@@ -263,17 +263,14 @@ export class TeamCardComponent {
 
   // Signals for reactive data
   private readonly _team = signal<Team>(this.team);
-  private readonly _isSelected = signal<boolean>(this.isSelected);
 
   // Update signals when inputs change
   ngOnChanges(): void {
     this._team.set(this.team);
-    this._isSelected.set(this.isSelected);
   }
 
   // Computed properties using signals
   readonly teamData = computed(() => this._team());
-  readonly isSelected = computed(() => this._isSelected());
 
   readonly recordDisplay = computed(() => {
     const record = this.teamData().record.overall;

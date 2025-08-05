@@ -11,7 +11,18 @@
       "Bash(jq:*)",
       "Bash(python:*)",
       "Bash(node:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(npm start)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 30 npm run build)",
+      "Bash(timeout 20 npm run build)",
+      "Bash(timeout 25 npm run build)",
+      "Bash(ng serve:*)",
+      "Bash(npx ng serve:*)",
+      "Bash(ng build)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

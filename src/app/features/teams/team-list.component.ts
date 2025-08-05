@@ -4,8 +4,8 @@ import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-import { DataService } from '../../core/services/data.service';
-import { ErrorHandlerService } from '../../core/services/error-handler.service';
+import { TeamsStore } from '../../store/teams.store';
+import { AppStore } from '../../store/app.store';
 import { TeamCardComponent } from '../../shared/components/team-card.component';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
@@ -43,11 +43,11 @@ import { Team } from '../../models/espn-fantasy.interfaces';
 
       <!-- Loading State -->
       <app-loading-spinner 
-        *ngIf="dataService.isLoadingTeams()"
+        *ngIf="isRefreshing()"
         type="circle"
         size="large"
         message="Loading teams..."
-        showMessage="true"
+[showMessage]="true"
         layout="inline">
       </app-loading-spinner>
 
@@ -62,7 +62,7 @@ import { Team } from '../../models/espn-fantasy.interfaces';
       </app-error-display>
 
       <!-- Team List Content -->
-      <div class="team-list-content" *ngIf="!dataService.isLoadingTeams() && !error()">
+      <div class="team-list-content" *ngIf="!isRefreshing() && !error()">
         
         <!-- Filters and Controls -->
         <section class="team-controls">
@@ -115,25 +115,25 @@ import { Team } from '../../models/espn-fantasy.interfaces';
         <section class="league-summary">
           <div class="summary-stats">
             <app-stat-display 
-              [stat]="summaryStats().totalTeams"
+              [stat]="summaryStats()['totalTeams']"
               size="small"
               variant="card">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="summaryStats().avgWins"
+              [stat]="summaryStats()['avgWins']"
               size="small"
               variant="card">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="summaryStats().highestScore"
+              [stat]="summaryStats()['highestScore']"
               size="small"
               variant="highlighted">
             </app-stat-display>
             
             <app-stat-display 
-              [stat]="summaryStats().lowestScore"
+              [stat]="summaryStats()['lowestScore']"
               size="small"
               variant="card">
             </app-stat-display>
@@ -169,17 +169,17 @@ import { Team } from '../../models/espn-fantasy.interfaces';
               <h4>Record</h4>
               <div class="stats-row">
                 <app-stat-display 
-                  [stat]="selectedTeamStats().wins"
+                  [stat]="selectedTeamStats()['wins']"
                   size="small">
                 </app-stat-display>
                 <app-stat-display 
-                  [stat]="selectedTeamStats().losses"
+                  [stat]="selectedTeamStats()['losses']"
                   size="small">
                 </app-stat-display>
                 <app-stat-display 
-                  [stat]="selectedTeamStats().ties"
+                  [stat]="selectedTeamStats()['ties']"
                   size="small"
-                  *ngIf="selectedTeamStats().ties.value > 0">
+                  *ngIf="selectedTeamStats()['ties'].value > 0">
                 </app-stat-display>
               </div>
             </div>
@@ -188,19 +188,19 @@ import { Team } from '../../models/espn-fantasy.interfaces';
               <h4>Scoring</h4>
               <div class="stats-row">
                 <app-stat-display 
-                  [stat]="selectedTeamStats().pointsFor"
+                  [stat]="selectedTeamStats()['pointsFor']"
                   size="small"
                   variant="success">
                 </app-stat-display>
                 <app-stat-display 
-                  [stat]="selectedTeamStats().pointsAgainst"
+                  [stat]="selectedTeamStats()['pointsAgainst']"
                   size="small"
                   variant="warning">
                 </app-stat-display>
                 <app-stat-display 
-                  [stat]="selectedTeamStats().pointsDiff"
+                  [stat]="selectedTeamStats()['pointsDiff']"
                   size="small"
-                  [variant]="selectedTeamStats().pointsDiff.value >= 0 ? 'success' : 'danger'">
+                  variant="success">
                 </app-stat-display>
               </div>
             </div>
@@ -209,12 +209,12 @@ import { Team } from '../../models/espn-fantasy.interfaces';
               <h4>Performance</h4>
               <div class="stats-row">
                 <app-stat-display 
-                  [stat]="selectedTeamStats().winPercentage"
+                  [stat]="selectedTeamStats()['winPercentage']"
                   size="small"
                   variant="highlighted">
                 </app-stat-display>
                 <app-stat-display 
-                  [stat]="selectedTeamStats().avgPointsPerGame"
+                  [stat]="selectedTeamStats()['avgPointsPerGame']"
                   size="small">
                 </app-stat-display>
               </div>
@@ -500,31 +500,32 @@ import { Team } from '../../models/espn-fantasy.interfaces';
 })
 export class TeamListComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
-  private readonly _isRefreshing = signal(false);
-  private readonly _error = signal<string | null>(null);
   private readonly _searchTerm = signal('');
   private readonly _sortBy = signal<'wins' | 'losses' | 'pointsFor' | 'pointsAgainst' | 'name'>('wins');
   private readonly _sortDirection = signal<'asc' | 'desc'>('desc');
   private readonly _viewMode = signal<'grid' | 'list'>('grid');
-  private readonly _selectedTeam = signal<Team | null>(null);
 
-  // Inject services
-  protected readonly dataService = inject(DataService);
-  private readonly errorHandler = inject(ErrorHandlerService);
+  // Inject stores and services
+  private readonly teamsStore = inject(TeamsStore);
+  private readonly appStore = inject(AppStore);
   private readonly router = inject(Router);
 
   // Public signals
-  readonly isRefreshing = this._isRefreshing.asReadonly();
-  readonly error = this._error.asReadonly();
+  readonly isRefreshing = this.teamsStore.isRefreshing;
+  readonly error = computed(() => {
+    const storeError = this.teamsStore.error();
+    return storeError?.error || undefined;
+  });
   readonly searchTerm = this._searchTerm.asReadonly();
   readonly sortBy = this._sortBy.asReadonly();
   readonly sortDirection = this._sortDirection.asReadonly();
   readonly viewMode = this._viewMode.asReadonly();
-  readonly selectedTeam = this._selectedTeam.asReadonly();
+  readonly selectedTeam = this.teamsStore.selectedTeam;
 
   // Computed properties
   readonly filteredTeams = computed(() => {
-    let teams = this.dataService.teams();
+    let teams = this.teamsStore.teams();
+    if (!teams) return [];
     const search = this._searchTerm().toLowerCase();
     const sortBy = this._sortBy();
     const sortDir = this._sortDirection();
@@ -578,22 +579,15 @@ export class TeamListComponent implements OnInit, OnDestroy {
   });
 
   readonly ownerMap = computed(() => {
-    const league = this.dataService.league();
+    // TODO: Get league data from a league store when available
     const ownerMap: { [key: string]: string } = {};
-    
-    if (league?.members) {
-      league.members.forEach(member => {
-        ownerMap[member.id] = member.displayName;
-      });
-    }
-    
     return ownerMap;
   });
 
   readonly summaryStats = computed((): Record<string, StatConfig> => {
-    const teams = this.dataService.teams();
+    const teams = this.teamsStore.teams();
     
-    if (teams.length === 0) {
+    if (!teams || teams.length === 0) {
       return {
         totalTeams: { label: 'Total Teams', value: 0 },
         avgWins: { label: 'Avg Wins', value: 0 },
@@ -641,7 +635,7 @@ export class TeamListComponent implements OnInit, OnDestroy {
   });
 
   readonly selectedTeamStats = computed((): Record<string, StatConfig> => {
-    const team = this._selectedTeam();
+    const team = this.selectedTeam();
     if (!team) return {};
 
     const record = team.record.overall;
@@ -713,28 +707,16 @@ export class TeamListComponent implements OnInit, OnDestroy {
 
   private async initializeTeamList(): Promise<void> {
     try {
-      this._error.set(null);
-      if (this.dataService.teams().length === 0) {
-        await this.dataService.loadTeams();
+      if (this.teamsStore.teams()?.length === 0) {
+        this.teamsStore.load().subscribe();
       }
     } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+      console.error('Failed to initialize team list:', error);
     }
   }
 
   async refreshData(): Promise<void> {
-    this._isRefreshing.set(true);
-    this._error.set(null);
-
-    try {
-      await this.dataService.loadTeams();
-    } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
-    } finally {
-      this._isRefreshing.set(false);
-    }
+    this.teamsStore.refresh().subscribe();
   }
 
   updateSearchTerm(event: Event): void {
@@ -757,12 +739,12 @@ export class TeamListComponent implements OnInit, OnDestroy {
   }
 
   selectTeam(team: Team): void {
-    const current = this._selectedTeam();
-    this._selectedTeam.set(current?.id === team.id ? null : team);
+    const current = this.selectedTeam();
+    this.teamsStore.selectTeam(current?.id === team.id ? 0 : team.id);
   }
 
   clearSelection(): void {
-    this._selectedTeam.set(null);
+    this.teamsStore.clearSelection();
   }
 
   viewTeamDetails(team: Team): void {

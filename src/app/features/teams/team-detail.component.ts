@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil, switchMap, of } from 'rxjs';
 
-import { DataService } from '../../core/services/data.service';
-import { ErrorHandlerService } from '../../core/services/error-handler.service';
+import { StubService, StubErrorHandler } from '../../stub.service';
 import { PlayerCardComponent } from '../../shared/components/player-card.component';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
@@ -36,7 +35,7 @@ import { Team, Player, RosterEntry, ScheduleItem } from '../../models/espn-fanta
         type="circle"
         size="large"
         message="Loading team details..."
-        showMessage="true"
+        [showMessage]="true"
         layout="inline">
       </app-loading-spinner>
 
@@ -677,8 +676,8 @@ export class TeamDetailComponent implements OnInit, OnDestroy {
   private readonly _teamId = signal<number | null>(null);
 
   // Inject services
-  protected readonly dataService = inject(DataService);
-  private readonly errorHandler = inject(ErrorHandlerService);
+  protected readonly dataService = StubService;
+  private readonly errorHandler = StubErrorHandler;
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 

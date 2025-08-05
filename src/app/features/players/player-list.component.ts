@@ -4,8 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-import { DataService } from '../../core/services/data.service';
-import { ErrorHandlerService } from '../../core/services/error-handler.service';
+import { StubService, StubErrorHandler } from '../../stub.service';
 import { PlayerCardComponent } from '../../shared/components/player-card.component';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
@@ -47,7 +46,7 @@ import { Player, RosterEntry, PlayerPosition, Team } from '../../models/espn-fan
         type="circle"
         size="large"
         message="Loading player data..."
-        showMessage="true"
+        [showMessage]="true"
         layout="inline">
       </app-loading-spinner>
 
@@ -770,8 +769,8 @@ export class PlayerListComponent implements OnInit, OnDestroy {
   private readonly _showOwnership = signal(true);
 
   // Inject services
-  protected readonly dataService = inject(DataService);
-  private readonly errorHandler = inject(ErrorHandlerService);
+  protected readonly dataService = StubService;
+  private readonly errorHandler = StubErrorHandler;
 
   // Public signals
   readonly isRefreshing = this._isRefreshing.asReadonly();
