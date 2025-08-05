@@ -564,32 +564,49 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private async initializeDashboard(): Promise<void> {
-    // Load all data from stores
+    // Load all data from stores with proper error handling
     if (!this.teamsStore.teams()?.length) {
-      this.teamsStore.load().subscribe();
+      this.teamsStore.load().subscribe({
+        next: () => console.log('Teams loaded successfully'),
+        error: (error) => console.warn('Failed to load teams:', error)
+      });
     }
     if (!this.matchupsStore.matchups()?.length) {
-      this.matchupsStore.load().subscribe();
+      this.matchupsStore.load().subscribe({
+        next: () => console.log('Matchups loaded successfully'),
+        error: (error) => console.warn('Failed to load matchups:', error)
+      });
     }
     if (!this.standingsStore.standings()?.length) {
-      this.standingsStore.load().subscribe();
+      this.standingsStore.load().subscribe({
+        next: () => console.log('Standings loaded successfully'),
+        error: (error) => console.warn('Failed to load standings:', error)
+      });
     }
   }
 
   async refreshData(): Promise<void> {
-    // Refresh all data
-    this.teamsStore.refresh().subscribe();
-    this.matchupsStore.refresh().subscribe();
-    this.standingsStore.refresh().subscribe();
+    // Refresh all data with proper error handling
+    this.teamsStore.refresh().subscribe({
+      error: (error) => console.warn('Failed to refresh teams:', error)
+    });
+    this.matchupsStore.refresh().subscribe({
+      error: (error) => console.warn('Failed to refresh matchups:', error)
+    });
+    this.standingsStore.refresh().subscribe({
+      error: (error) => console.warn('Failed to refresh standings:', error)
+    });
   }
 
   getTeamName(teamId: number): string {
-    const teams = this.teamsStore.teams();
-    const team = teams?.find(t => t.id === teamId);
+    const team = this.teamsStore.getTeamById(teamId);
     return team?.name || `Team ${teamId}`;
   }
 
   getTeamRecord(team: Team): string {
+    if (!team || !team.record || !team.record.overall) {
+      return '0-0';
+    }
     const record = team.record.overall;
     return `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ''}`;
   }

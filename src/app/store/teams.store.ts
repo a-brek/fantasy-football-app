@@ -14,7 +14,7 @@ import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { BaseStore, StoreConfig, createSelector, createArrayFilter, createArraySort } from './base-store';
 import { FantasyFootballService } from '../services/fantasy-football/fantasy-football.service';
-import { Team, TeamsResponse } from '../models/espn-fantasy.interfaces';
+import { Team, TeamsResponse, StreakType } from '../models/espn-fantasy.interfaces';
 
 // =============================================
 // TYPES AND INTERFACES

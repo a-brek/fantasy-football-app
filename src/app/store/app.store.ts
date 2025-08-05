@@ -8,9 +8,10 @@
  * @author Generated with Claude Code
  */
 
-import { Injectable, computed, signal, effect } from '@angular/core';
+import { Injectable, computed, signal, effect, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { BaseStore, StoreConfig } from './base-store';
+import { FantasyFootballService } from '../services/fantasy-football/fantasy-football.service';
 
 // =============================================
 // TYPES AND INTERFACES
@@ -157,6 +158,8 @@ export class AppStore extends BaseStore<AppState> {
     return Array.from({ length: maxWeek }, (_, i) => i + 1);
   });
 
+  private readonly fantasyService = inject(FantasyFootballService);
+
   constructor() {
     super();
     this.config = this.appConfig;
@@ -171,6 +174,9 @@ export class AppStore extends BaseStore<AppState> {
     
     // Set up session tracking
     this.setupSessionTracking();
+    
+    // Load current week from ESPN API
+    this.loadCurrentWeekFromAPI();
   }
 
   protected loadData(): Observable<AppState> {
@@ -494,13 +500,30 @@ export class AppStore extends BaseStore<AppState> {
   }
 
   private getCurrentWeek(): number {
-    // Simple logic to determine current NFL week
-    // In a real app, you'd get this from the API
-    const now = new Date();
-    const seasonStart = new Date(now.getFullYear(), 8, 1); // September 1st
-    const diffTime = Math.abs(now.getTime() - seasonStart.getTime());
-    const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
-    return Math.min(Math.max(diffWeeks, 1), 17);
+    // Return current selected week from state, or fallback to week 1
+    // The actual current week will be loaded from ESPN API
+    const currentState = this.data();
+    return currentState?.selectedWeek || 1;
+  }
+
+  private loadCurrentWeekFromAPI(): void {
+    // Load current week information from ESPN API
+    this.fantasyService.getCurrentWeekInfo().subscribe({
+      next: (weekInfo) => {
+        console.log('📅 Setting current week from ESPN API:', weekInfo);
+        this.updateState(state => ({
+          ...state,
+          selectedWeek: weekInfo.currentWeek,
+          currentScoringPeriod: weekInfo.currentWeek,
+          isPlayoffs: weekInfo.currentWeek > 14,
+          availableWeeks: Array.from({ length: weekInfo.finalWeek }, (_, i) => i + 1)
+        }));
+      },
+      error: (error) => {
+        console.warn('Failed to load current week from ESPN API:', error);
+        // Keep default values if API call fails
+      }
+    });
   }
 
   private updateState(updater: (state: AppState) => AppState): void {

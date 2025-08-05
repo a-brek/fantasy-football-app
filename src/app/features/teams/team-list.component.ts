@@ -71,7 +71,7 @@ import { Team } from '../../models/espn-fantasy.interfaces';
               type="text"
               class="search-input"
               placeholder="Search teams..."
-              [(ngModel)]="searchTerm"
+              [value]="searchTerm()"
               (input)="updateSearchTerm($event)">
           </div>
           

@@ -22,7 +22,9 @@
       "Bash(ng serve:*)",
       "Bash(npx ng serve:*)",
       "Bash(ng build)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npx ng build:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

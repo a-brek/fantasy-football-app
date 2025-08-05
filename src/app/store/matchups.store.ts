@@ -13,6 +13,7 @@ import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { BaseStore, StoreConfig, createSelector, createArrayFilter, createArraySort } from './base-store';
 import { FantasyFootballService } from '../services/fantasy-football/fantasy-football.service';
+import { AppStore } from './app.store';
 import { ScheduleItem, MatchupResponse, MatchupWinner, ScheduleTeam } from '../models/espn-fantasy.interfaces';
 
 // =============================================
@@ -69,6 +70,7 @@ export interface HeadToHeadRecord {
 export class MatchupsStore extends BaseStore<MatchupsState> {
   
   private readonly fantasyService = inject(FantasyFootballService);
+  private readonly appStore = inject(AppStore);
   
   // Configuration for matchups store
   private readonly matchupsConfig: StoreConfig = {
@@ -357,12 +359,9 @@ export class MatchupsStore extends BaseStore<MatchupsState> {
   // =============================================
 
   private getCurrentWeek(): number {
-    // Simple logic to determine current NFL week
-    const now = new Date();
-    const seasonStart = new Date(now.getFullYear(), 8, 1); // September 1st
-    const diffTime = Math.abs(now.getTime() - seasonStart.getTime());
-    const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
-    return Math.min(Math.max(diffWeeks, 1), 17);
+    // Use current week from AppStore (which gets it from ESPN API)
+    const appState = this.appStore.data();
+    return appState?.selectedWeek || 1;
   }
 
   private getGameType(week: number): 'regular' | 'playoff' | 'championship' {

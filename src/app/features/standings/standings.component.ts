@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-import { StubService, StubErrorHandler } from '../../stub.service';
+import { StandingsStore } from '../../store/standings.store';
+import { TeamsStore } from '../../store/teams.store';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
 import { ErrorDisplayComponent } from '../../shared/components/error-display.component';
@@ -40,7 +41,7 @@ import { Team } from '../../models/espn-fantasy.interfaces';
 
       <!-- Loading State -->
       <app-loading-spinner 
-        *ngIf="dataService.isLoadingStandings()"
+        *ngIf="isRefreshing()"
         type="circle"
         size="large"
         message="Loading standings..."
@@ -59,7 +60,7 @@ import { Team } from '../../models/espn-fantasy.interfaces';
       </app-error-display>
 
       <!-- Standings Content -->
-      <div class="standings-content" *ngIf="!dataService.isLoadingStandings() && !error()">
+      <div class="standings-content" *ngIf="!isRefreshing() && !error()">
         
         <!-- League Overview Stats -->
         <section class="league-overview">
@@ -876,13 +877,25 @@ export class StandingsComponent implements OnInit, OnDestroy {
   private readonly _selectedTeam = signal<Team | null>(null);
   private readonly _playoffCutoff = signal(6); // Typical playoff cutoff
 
-  // Inject services
-  protected readonly dataService = StubService;
-  private readonly errorHandler = StubErrorHandler;
+  // Inject stores
+  private readonly standingsStore = inject(StandingsStore);
+  private readonly teamsStore = inject(TeamsStore);
+  
+  constructor() {
+    // Initialize stores on component creation
+    this.standingsStore.load();
+    this.teamsStore.load();
+  }
 
   // Public signals
-  readonly isRefreshing = this._isRefreshing.asReadonly();
-  readonly error = this._error.asReadonly();
+  readonly isRefreshing = computed(() => {
+    return this.standingsStore.isRefreshing() || this.teamsStore.isRefreshing() || this._isRefreshing();
+  });
+  readonly error = computed(() => {
+    const standingsError = this.standingsStore.error();
+    const teamsError = this.teamsStore.error();
+    return standingsError?.error || teamsError?.error || this._error();
+  });
   readonly sortBy = this._sortBy.asReadonly();
   readonly showPlayoffPositions = this._showPlayoffPositions.asReadonly();
   readonly showDetailedStats = this._showDetailedStats.asReadonly();
@@ -891,7 +904,7 @@ export class StandingsComponent implements OnInit, OnDestroy {
 
   // Computed properties
   readonly sortedTeams = computed(() => {
-    const teams = this.dataService.standings();
+    const teams = this.standingsStore.standings() || [];
     const sortBy = this._sortBy();
 
     if (sortBy === 'standings') {
@@ -919,7 +932,7 @@ export class StandingsComponent implements OnInit, OnDestroy {
   });
 
   readonly leagueStats = computed((): Record<string, StatConfig> => {
-    const teams = this.dataService.teams();
+    const teams = this.standingsStore.standings() || [];
     
     if (teams.length === 0) {
       return {
@@ -1037,12 +1050,17 @@ export class StandingsComponent implements OnInit, OnDestroy {
   private async initializeStandings(): Promise<void> {
     try {
       this._error.set(null);
-      if (this.dataService.teams().length === 0) {
-        await this.dataService.loadStandings();
+      const standings = this.standingsStore.standings();
+      if (!standings || standings.length === 0) {
+        this.standingsStore.load().subscribe({
+          error: (error) => {
+            console.warn('Failed to load standings:', error);
+            this._error.set('Failed to load standings data');
+          }
+        });
       }
     } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+      this._error.set('Failed to initialize standings');
     }
   }
 
@@ -1050,14 +1068,17 @@ export class StandingsComponent implements OnInit, OnDestroy {
     this._isRefreshing.set(true);
     this._error.set(null);
 
-    try {
-      await this.dataService.loadStandings();
-    } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
-    } finally {
-      this._isRefreshing.set(false);
-    }
+    this.standingsStore.refresh().subscribe({
+      next: () => {
+        console.log('Standings refreshed successfully');
+        this._isRefreshing.set(false);
+      },
+      error: (error) => {
+        console.warn('Failed to refresh standings:', error);
+        this._error.set('Failed to refresh standings data');
+        this._isRefreshing.set(false);
+      }
+    });
   }
 
   updateSortBy(event: Event): void {
@@ -1083,15 +1104,9 @@ export class StandingsComponent implements OnInit, OnDestroy {
   }
 
   getOwnerNames(team: Team): string {
-    const league = this.dataService.league();
-    if (!league?.members) return 'Unknown';
-    
-    const names = team.owners.map(ownerId => {
-      const member = league.members.find(m => m.id === ownerId);
-      return member?.displayName || 'Unknown';
-    });
-    
-    return names.join(', ');
+    // For now, return a placeholder since we don't have league member data
+    // This would need to be implemented when we have access to league member information
+    return 'Owner';
   }
 
   getTeamRowClass(team: Team, rank: number): string {

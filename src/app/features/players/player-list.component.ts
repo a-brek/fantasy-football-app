@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-import { StubService, StubErrorHandler } from '../../stub.service';
+import { PlayersStore } from '../../store/players.store';
+import { TeamsStore } from '../../store/teams.store';
 import { PlayerCardComponent } from '../../shared/components/player-card.component';
 import { StatDisplayComponent, StatConfig } from '../../shared/components/stat-display.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner.component';
@@ -42,7 +43,7 @@ import { Player, RosterEntry, PlayerPosition, Team } from '../../models/espn-fan
 
       <!-- Loading State -->
       <app-loading-spinner 
-        *ngIf="dataService.isLoadingRosters()"
+        *ngIf="playersStore.isLoading()"
         type="circle"
         size="large"
         message="Loading player data..."
@@ -61,7 +62,7 @@ import { Player, RosterEntry, PlayerPosition, Team } from '../../models/espn-fan
       </app-error-display>
 
       <!-- Player List Content -->
-      <div class="player-list-content" *ngIf="!dataService.isLoadingRosters() && !error()">
+      <div class="player-list-content" *ngIf="!playersStore.isLoading() && !error()">
         
         <!-- Filters and Controls -->
         <section class="player-controls">
@@ -72,7 +73,7 @@ import { Player, RosterEntry, PlayerPosition, Team } from '../../models/espn-fan
                 type="text"
                 class="search-input"
                 placeholder="Search players..."
-                [(ngModel)]="searchTerm"
+                [value]="searchTerm()"
                 (input)="updateSearchTerm($event)">
             </div>
             
@@ -768,9 +769,9 @@ export class PlayerListComponent implements OnInit, OnDestroy {
   private readonly _pageSize = signal(50);
   private readonly _showOwnership = signal(true);
 
-  // Inject services
-  protected readonly dataService = StubService;
-  private readonly errorHandler = StubErrorHandler;
+  // Inject stores
+  protected readonly playersStore = inject(PlayersStore);
+  protected readonly teamsStore = inject(TeamsStore);
 
   // Public signals
   readonly isRefreshing = this._isRefreshing.asReadonly();
@@ -789,11 +790,11 @@ export class PlayerListComponent implements OnInit, OnDestroy {
 
   // Computed properties
   readonly availableTeams = computed(() => {
-    return this.dataService.teams();
+    return this.teamsStore.teams() || [];
   });
 
   readonly allPlayers = computed(() => {
-    const rosters = this.dataService.rosters();
+    const rosters = this.playersStore.rosters() || [];
     const players: Array<{player: Player, rosterEntry?: RosterEntry, teamId: number}> = [];
     
     rosters.forEach(team => {
@@ -879,8 +880,8 @@ export class PlayerListComponent implements OnInit, OnDestroy {
           bValue = this.getPositionName(b.player.defaultPositionId);
           break;
         case 'team':
-          const aTeam = this.dataService.getTeamById(a.teamId);
-          const bTeam = this.dataService.getTeamById(b.teamId);
+          const aTeam = this.teamsStore.getTeamById(a.teamId);
+          const bTeam = this.teamsStore.getTeamById(b.teamId);
           aValue = aTeam?.name.toLowerCase() || '';
           bValue = bTeam?.name.toLowerCase() || '';
           break;
@@ -1017,12 +1018,11 @@ export class PlayerListComponent implements OnInit, OnDestroy {
   private async initializePlayerList(): Promise<void> {
     try {
       this._error.set(null);
-      if (this.dataService.rosters().length === 0) {
-        await this.dataService.loadRosters();
+      if ((this.playersStore.rosters()?.length || 0) === 0) {
+        this.playersStore.load().subscribe();
       }
     } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+      this._error.set(String(error));
     }
   }
 
@@ -1031,10 +1031,9 @@ export class PlayerListComponent implements OnInit, OnDestroy {
     this._error.set(null);
 
     try {
-      await this.dataService.loadRosters();
+      this.playersStore.refresh().subscribe();
     } catch (error) {
-      const errorMessage = this.errorHandler.getUserFriendlyMessage(error);
-      this._error.set(errorMessage);
+      this._error.set(String(error));
     } finally {
       this._isRefreshing.set(false);
     }
@@ -1168,7 +1167,7 @@ export class PlayerListComponent implements OnInit, OnDestroy {
     const playerData = this.allPlayers().find(p => p.player.id === player.id);
     if (!playerData) return 'Free Agent';
     
-    const team = this.dataService.getTeamById(playerData.teamId);
+    const team = this.teamsStore.getTeamById(playerData.teamId);
     return team?.name || 'Unknown Team';
   }
 

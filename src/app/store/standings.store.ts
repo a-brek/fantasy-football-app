@@ -10,10 +10,11 @@
 
 import { Injectable, computed, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { map, tap, switchMap } from 'rxjs/operators';
 import { BaseStore, StoreConfig, createSelector, createArrayFilter, createArraySort } from './base-store';
 import { FantasyFootballService } from '../services/fantasy-football/fantasy-football.service';
-import { League, StandingsResponse, Team, RecordDetail } from '../models/espn-fantasy.interfaces';
+import { TeamsStore } from './teams.store';
+import { League, StandingsResponse, Team, RecordDetail, StreakType } from '../models/espn-fantasy.interfaces';
 
 // =============================================
 // TYPES AND INTERFACES
@@ -96,6 +97,7 @@ export type PlayoffPosition =
 export class StandingsStore extends BaseStore<StandingsState> {
   
   private readonly fantasyService = inject(FantasyFootballService);
+  private readonly teamsStore = inject(TeamsStore);
   
   // Configuration for standings store
   private readonly standingsConfig: StoreConfig = {
@@ -272,16 +274,57 @@ export class StandingsStore extends BaseStore<StandingsState> {
   }
 
   protected loadData(): Observable<StandingsState> {
-    return this.fantasyService.getStandings().pipe(
-      map((response: StandingsResponse) => ({
-        league: response.league || null,
-        sortBy: 'record' as const,
-        viewMode: 'overall' as const,
-        showProjections: false,
-        lastUpdatedWeek: null
-      })),
+    // First ensure teams are loaded, then create standings from that data
+    return this.teamsStore.load().pipe(
+      switchMap(() => {
+        const teams = this.teamsStore.teams();
+        const league: League = {
+          draftDetail: {} as any,
+          gameId: 1,
+          id: 532886,
+          members: [],
+          scoringPeriodId: 1,
+          seasonId: 2024,
+          segmentId: 0,
+          status: {
+            activatedDate: Date.now(),
+            createdAsLeagueType: 0,
+            currentLeagueType: 0,
+            currentMatchupPeriod: 17,
+            finalScoringPeriod: 17,
+            firstScoringPeriod: 1,
+            isActive: true,
+            isExpired: false,
+            isFull: true,
+            isPlayoffMatchupEdited: false,
+            isToBeDeleted: false,
+            isViewable: true,
+            isWaiverOrderEdited: false,
+            latestScoringPeriod: 17,
+            previousSeasons: [],
+            standingsUpdateDate: Date.now(),
+            teamsJoined: 10,
+            transactionScoringPeriod: 17,
+            waiverLastExecutionDate: Date.now(),
+            waiverProcessStatus: {}
+          },
+          teams: teams || []
+        };
+        
+        return new Observable<StandingsState>(observer => {
+          observer.next({
+            league,
+            sortBy: 'record' as const,
+            viewMode: 'overall' as const,
+            showProjections: false,
+            lastUpdatedWeek: null
+          });
+          observer.complete();
+        });
+      }),
       tap(state => {
         const teamCount = state.league?.teams?.length || 0;
+        console.log(`📊 Standings loaded with ${teamCount} teams`);
         this.trackAnalytics('standings_loaded', 'data', undefined, teamCount);
       })
     );
