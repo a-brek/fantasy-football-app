@@ -24,7 +24,10 @@
       "Bash(ng build)",
       "Bash(timeout:*)",
       "Bash(npx ng build:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(ng build:*)"
     ],
     "deny": []
   }

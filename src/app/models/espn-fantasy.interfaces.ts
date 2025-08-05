@@ -920,4 +920,616 @@ export const STAT_IDS = {
   SACKS: '99'
 } as const;
 
+// =============================================
+// HISTORICAL DATA INTERFACES
+// =============================================
+
+/**
+ * Historical season data for trend analysis
+ */
+export interface HistoricalSeason {
+  /** Season year */
+  seasonId: number;
+  
+  /** League configuration for that season */
+  leagueSettings: HistoricalLeagueSettings;
+  
+  /** Final standings for the season */
+  finalStandings: HistoricalTeamStanding[];
+  
+  /** Season statistics and records */
+  seasonStats: SeasonStatistics;
+  
+  /** Notable events and achievements */
+  seasonHighlights: SeasonHighlight[];
+  
+  /** Playoff bracket and results */
+  playoffResults: PlayoffResults;
+  
+  /** Draft information */
+  draftInfo: HistoricalDraftInfo;
+}
+
+/**
+ * League settings for historical analysis
+ */
+export interface HistoricalLeagueSettings {
+  /** Number of teams */
+  teamCount: number;
+  
+  /** Scoring format */
+  scoringFormat: 'standard' | 'ppr' | 'half-ppr' | 'custom';
+  
+  /** Playoff format (teams, weeks) */
+  playoffFormat: {
+    teams: number;
+    weeks: number;
+    bracket: 'single' | 'double';
+  };
+  
+  /** Position limits */
+  rosterSettings: {
+    [position: string]: number;
+  };
+}
+
+/**
+ * Historical team standing with additional context
+ */
+export interface HistoricalTeamStanding {
+  /** Team ID */
+  teamId: number;
+  
+  /** Team name at time */
+  teamName: string;
+  
+  /** Owner names */
+  ownerNames: string[];
+  
+  /** Final rank */
+  finalRank: number;
+  
+  /** Regular season record */
+  regularSeasonRecord: RecordDetail;
+  
+  /** Playoff record */
+  playoffRecord: RecordDetail;
+  
+  /** Total points scored */
+  totalPoints: number;
+  
+  /** Points per game average */
+  pointsPerGame: number;
+  
+  /** Highest single game score */
+  highestScore: number;
+  
+  /** Lowest single game score */
+  lowestScore: number;
+  
+  /** Weekly performance breakdown */
+  weeklyScores: { [week: number]: number };
+  
+  /** Strength of schedule */
+  strengthOfSchedule: number;
+}
+
+/**
+ * Season-wide statistics and records
+ */
+export interface SeasonStatistics {
+  /** League scoring averages */
+  leagueAverages: {
+    pointsPerGame: number;
+    winningScore: number;
+    blowoutMargin: number;
+  };
+  
+  /** Individual records */
+  seasonRecords: {
+    highestScore: SeasonRecord;
+    lowestScore: SeasonRecord;
+    mostPointsFor: SeasonRecord;
+    mostPointsAgainst: SeasonRecord;
+    bestRecord: SeasonRecord;
+    worstRecord: SeasonRecord;
+    biggestBlowout: SeasonRecord;
+    closestGame: SeasonRecord;
+  };
+  
+  /** Position performance stats */
+  positionStats: {
+    [position: string]: {
+      topPerformer: PlayerSeasonStat;
+      averagePoints: number;
+      consistency: number;
+    };
+  };
+}
+
+/**
+ * Individual season record
+ */
+export interface SeasonRecord {
+  /** Team ID that holds the record */
+  teamId: number;
+  
+  /** Value of the record */
+  value: number;
+  
+  /** Week when achieved (if applicable) */
+  week?: number;
+  
+  /** Additional context */
+  context?: string;
+}
+
+/**
+ * Player season statistics
+ */
+export interface PlayerSeasonStat {
+  /** Player ID */
+  playerId: number;
+  
+  /** Player name */
+  playerName: string;
+  
+  /** Position */
+  position: string;
+  
+  /** Total points */
+  totalPoints: number;
+  
+  /** Games played */
+  gamesPlayed: number;
+  
+  /** Points per game */
+  pointsPerGame: number;
+  
+  /** Team they were on */
+  teamId: number;
+}
+
+/**
+ * Season highlight event
+ */
+export interface SeasonHighlight {
+  /** Unique highlight ID */
+  id: string;
+  
+  /** Type of highlight */
+  type: 'trade' | 'record' | 'milestone' | 'upset' | 'streak' | 'comeback';
+  
+  /** Week when it occurred */
+  week: number;
+  
+  /** Title of the highlight */
+  title: string;
+  
+  /** Detailed description */
+  description: string;
+  
+  /** Teams involved */
+  teamsInvolved: number[];
+  
+  /** Players involved (if applicable) */
+  playersInvolved?: number[];
+  
+  /** Significance score (1-10) */
+  significance: number;
+}
+
+/**
+ * Playoff bracket and results
+ */
+export interface PlayoffResults {
+  /** Bracket structure */
+  bracket: PlayoffMatchup[];
+  
+  /** Champion team ID */
+  champion: number;
+  
+  /** Runner-up team ID */
+  runnerUp: number;
+  
+  /** Third place team ID */
+  thirdPlace?: number;
+  
+  /** Consolation bracket winner */
+  consolationWinner?: number;
+}
+
+/**
+ * Individual playoff matchup
+ */
+export interface PlayoffMatchup {
+  /** Round number (1 = first round, 2 = semifinals, etc.) */
+  round: number;
+  
+  /** Matchup within the round */
+  matchupNumber: number;
+  
+  /** Team 1 */
+  team1: {
+    teamId: number;
+    seed: number;
+    score: number;
+  };
+  
+  /** Team 2 */
+  team2: {
+    teamId: number;
+    seed: number;
+    score: number;
+  };
+  
+  /** Winner team ID */
+  winner: number;
+  
+  /** Whether it was an upset */
+  isUpset: boolean;
+}
+
+/**
+ * Historical draft information
+ */
+export interface HistoricalDraftInfo {
+  /** Draft date */
+  draftDate: number;
+  
+  /** Draft type */
+  draftType: 'snake' | 'auction' | 'linear';
+  
+  /** Draft order */
+  draftOrder: number[];
+  
+  /** Pick-by-pick results */
+  draftPicks: DraftPick[];
+  
+  /** Draft grades (if available) */
+  draftGrades?: { [teamId: number]: DraftGrade };
+}
+
+/**
+ * Individual draft pick
+ */
+export interface DraftPick {
+  /** Overall pick number */
+  pickNumber: number;
+  
+  /** Round number */
+  round: number;
+  
+  /** Pick within round */
+  pickInRound: number;
+  
+  /** Team making the pick */
+  teamId: number;
+  
+  /** Player selected */
+  playerId: number;
+  
+  /** Player name */
+  playerName: string;
+  
+  /** Position */
+  position: string;
+  
+  /** Auction value (if auction draft) */
+  auctionValue?: number;
+  
+  /** Whether it was a reach/steal */
+  draftGrade?: 'steal' | 'reach' | 'value' | 'average';
+}
+
+/**
+ * Draft grade summary
+ */
+export interface DraftGrade {
+  /** Overall grade letter */
+  overallGrade: 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D+' | 'D' | 'F';
+  
+  /** Numerical score */
+  score: number;
+  
+  /** Position grades */
+  positionGrades: { [position: string]: number };
+  
+  /** Best picks */
+  bestPicks: number[];
+  
+  /** Questionable picks */
+  questionablePicks: number[];
+}
+
+// =============================================
+// ACHIEVEMENT SYSTEM INTERFACES
+// =============================================
+
+/**
+ * Achievement definition
+ */
+export interface Achievement {
+  /** Unique achievement ID */
+  id: string;
+  
+  /** Achievement name */
+  name: string;
+  
+  /** Description */
+  description: string;
+  
+  /** Achievement category */
+  category: AchievementCategory;
+  
+  /** Rarity level */
+  rarity: AchievementRarity;
+  
+  /** Icon/badge reference */
+  icon: string;
+  
+  /** Points awarded */
+  points: number;
+  
+  /** Unlock criteria */
+  criteria: AchievementCriteria;
+  
+  /** Whether it's repeatable */
+  repeatable: boolean;
+  
+  /** Season-specific or all-time */
+  scope: 'season' | 'alltime' | 'career';
+  
+  /** Hidden until unlocked */
+  hidden: boolean;
+}
+
+/**
+ * Achievement categories
+ */
+export type AchievementCategory = 
+  | 'scoring'      // High scores, records
+  | 'strategy'     // Smart moves, trades
+  | 'consistency'  // Steady performance
+  | 'comeback'     // Overcoming deficits
+  | 'domination'   // Winning streaks, blowouts
+  | 'participation'// Attendance, engagement
+  | 'milestone'    // Career milestones
+  | 'special'      // Unique/funny achievements
+  | 'seasonal';    // End of season awards
+
+/**
+ * Achievement rarity levels
+ */
+export type AchievementRarity = 
+  | 'common'    // Easy to achieve
+  | 'uncommon'  // Moderate difficulty
+  | 'rare'      // Challenging
+  | 'epic'      // Very difficult
+  | 'legendary'; // Extremely rare
+
+/**
+ * Achievement unlock criteria
+ */
+export interface AchievementCriteria {
+  /** Type of criteria */
+  type: 'single_game' | 'season_total' | 'streak' | 'comparative' | 'milestone' | 'complex';
+  
+  /** Specific requirements */
+  requirements: {
+    /** Statistic to track */
+    stat?: string;
+    
+    /** Threshold value */
+    threshold?: number;
+    
+    /** Comparison operator */
+    operator?: 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'between';
+    
+    /** Duration requirements */
+    duration?: {
+      type: 'weeks' | 'games' | 'season';
+      value: number;
+    };
+    
+    /** Additional conditions */
+    conditions?: AchievementCondition[];
+  };
+}
+
+/**
+ * Additional achievement conditions
+ */
+export interface AchievementCondition {
+  /** Condition type */
+  type: 'position' | 'opponent' | 'timing' | 'context';
+  
+  /** Condition value */
+  value: any;
+  
+  /** Operator */
+  operator?: 'eq' | 'in' | 'not_in' | 'gt' | 'gte' | 'lt' | 'lte';
+}
+
+/**
+ * User's achievement progress and unlocks
+ */
+export interface UserAchievements {
+  /** User/team ID */
+  userId: string;
+  
+  /** Unlocked achievements */
+  unlockedAchievements: UnlockedAchievement[];
+  
+  /** Achievement progress tracking */
+  progress: { [achievementId: string]: AchievementProgress };
+  
+  /** Total achievement points */
+  totalPoints: number;
+  
+  /** Achievement level/rank */
+  level: number;
+  
+  /** Points needed for next level */
+  pointsToNextLevel: number;
+  
+  /** Recent unlocks */
+  recentUnlocks: UnlockedAchievement[];
+}
+
+/**
+ * Individual unlocked achievement
+ */
+export interface UnlockedAchievement {
+  /** Achievement ID */
+  achievementId: string;
+  
+  /** When it was unlocked */
+  unlockedAt: number;
+  
+  /** Season when unlocked */
+  seasonId: number;
+  
+  /** Week when unlocked (if applicable) */
+  week?: number;
+  
+  /** Context data */
+  context: {
+    /** Value that triggered unlock */
+    triggerValue?: number;
+    
+    /** Opponent (if applicable) */
+    opponent?: number;
+    
+    /** Additional context */
+    metadata?: any;
+  };
+  
+  /** Whether user has seen notification */
+  notificationSeen: boolean;
+}
+
+/**
+ * Achievement progress tracking
+ */
+export interface AchievementProgress {
+  /** Achievement ID */
+  achievementId: string;
+  
+  /** Current progress value */
+  currentValue: number;
+  
+  /** Target value */
+  targetValue: number;
+  
+  /** Progress percentage */
+  progressPercent: number;
+  
+  /** Whether currently tracking */
+  isActive: boolean;
+  
+  /** Last updated */
+  lastUpdated: number;
+  
+  /** Historical progress snapshots */
+  progressHistory: ProgressSnapshot[];
+}
+
+/**
+ * Progress snapshot for historical tracking
+ */
+export interface ProgressSnapshot {
+  /** When snapshot was taken */
+  timestamp: number;
+  
+  /** Progress value at time */
+  value: number;
+  
+  /** Season/week context */
+  context: {
+    seasonId: number;
+    week?: number;
+  };
+}
+
+/**
+ * Weekly achievement recap
+ */
+export interface WeeklyAchievementRecap {
+  /** Season and week */
+  seasonId: number;
+  week: number;
+  
+  /** New achievements unlocked this week */
+  newAchievements: UnlockedAchievement[];
+  
+  /** Progress updates */
+  progressUpdates: {
+    achievementId: string;
+    previousValue: number;
+    newValue: number;
+    progressGained: number;
+  }[];
+  
+  /** Achievement of the week */
+  achievementOfTheWeek?: {
+    achievementId: string;
+    teamId: number;
+    description: string;
+  };
+  
+  /** Close calls (almost achieved) */
+  closeCalls: {
+    achievementId: string;
+    teamId: number;
+    percentComplete: number;
+  }[];
+}
+
+/**
+ * League achievement leaderboard
+ */
+export interface AchievementLeaderboard {
+  /** Overall points leaders */
+  overallLeaders: LeaderboardEntry[];
+  
+  /** Category leaders */
+  categoryLeaders: { [category in AchievementCategory]: LeaderboardEntry[] };
+  
+  /** Most recent unlocks */
+  recentUnlocks: {
+    achievementId: string;
+    teamId: number;
+    teamName: string;
+    unlockedAt: number;
+  }[];
+  
+  /** Rarest achievements in league */
+  rarestAchievements: {
+    achievementId: string;
+    unlockedBy: number[];
+    rarity: number; // percentage of teams that have it
+  }[];
+}
+
+/**
+ * Leaderboard entry
+ */
+export interface LeaderboardEntry {
+  /** Team ID */
+  teamId: number;
+  
+  /** Team name */
+  teamName: string;
+  
+  /** Points/score */
+  score: number;
+  
+  /** Rank position */
+  rank: number;
+  
+  /** Change from last update */
+  change: number;
+}
+
 export default League;
