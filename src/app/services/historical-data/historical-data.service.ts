@@ -266,7 +266,7 @@ export class HistoricalDataService {
     
     return this.http.get<any>(url, {
       params: {
-        view: 'mTeam,mRoster,mSchedule,mStandings'  // Get comprehensive data
+        view: 'mTeam'  // Get team data with records
       }
     }).pipe(
       map(data => ({
@@ -348,9 +348,9 @@ export class HistoricalDataService {
   }
 
   /**
-   * Transform API response to HistoricalSeason format
+   * Transform API response to HistoricalSeason format (made public for store use)
    */
-  private transformToHistoricalSeason(data: any, year: number, apiVersion: 'legacy' | 'modern'): HistoricalSeason | null {
+  public transformToHistoricalSeason(data: any, year: number, apiVersion: 'legacy' | 'modern'): HistoricalSeason | null {
     try {
       console.log(`🔄 Transforming ${apiVersion} API data for ${year}`);
       
@@ -465,14 +465,24 @@ export class HistoricalDataService {
   }
 
   private createFinalStandings(teams: any[], year: number): HistoricalTeamStanding[] {
-    return teams.map((team, index) => {
+    
+    return teams.map((team) => {
       const record = team.record?.overall || {};
+      
+      // Get team name - prefer full name, fallback to abbreviation
+      let teamName = team.name || team.location;
+      if (!teamName && team.abbrev) {
+        teamName = team.abbrev;
+      }
+      if (!teamName) {
+        teamName = `Team ${team.id}`;
+      }
       
       return {
         teamId: team.id,
-        teamName: team.name || team.location || `Team ${team.id}`,
+        teamName: teamName,
         ownerNames: this.extractOwnerNames(team),
-        finalRank: team.rankFinal || team.playoffSeed || index + 1,
+        finalRank: team.rankCalculatedFinal || team.playoffSeed || 1,
         regularSeasonRecord: {
           wins: record.wins || 0,
           losses: record.losses || 0,
@@ -482,58 +492,76 @@ export class HistoricalDataService {
           pointsAgainst: record.pointsAgainst || 0,
           gamesBack: record.gamesBack || 0,
           streakLength: record.streakLength || 0,
-          streakType: record.streakType || StreakType.WIN
+          streakType: record.streakType === 'WIN' ? StreakType.WIN : StreakType.LOSS
         },
         playoffRecord: this.extractPlayoffRecord(team),
         totalPoints: record.pointsFor || team.points || 0,
-        pointsPerGame: (record.pointsFor || 0) / Math.max(1, (record.wins || 0) + (record.losses || 0)),
-        highestScore: this.calculateHighestScore(team),
-        lowestScore: this.calculateLowestScore(team),
-        weeklyScores: this.extractWeeklyScores(team),
-        strengthOfSchedule: this.calculateStrengthOfSchedule(team, teams)
+        pointsPerGame: (record.pointsFor || team.points || 0) / Math.max(1, (record.wins || 0) + (record.losses || 0)),
+        highestScore: 0, // Not available in this API response
+        lowestScore: 0,   // Not available in this API response
+        weeklyScores: {}, // Not available in this API response
+        strengthOfSchedule: 0.5
       };
-    }).sort((a, b) => a.finalRank - b.finalRank);
+    })
+    .sort((a, b) => {
+      // Sort by final rank (ascending - lower rank number is better)
+      return a.finalRank - b.finalRank;
+    });
   }
+
 
   // Helper methods for legacy API data transformation
   private createLegacyFinalStandings(teams: any[], year: number): HistoricalTeamStanding[] {
     // Legacy API structure was different - adapt as needed
-    return teams.map((team, index) => ({
-      teamId: team.teamId || team.id || index + 1,
-      teamName: team.teamName || team.name || `Team ${index + 1}`,
-      ownerNames: [team.ownerName || `Owner ${index + 1}`],
-      finalRank: team.overallStanding || index + 1,
-      regularSeasonRecord: {
-        wins: team.wins || 0,
-        losses: team.losses || 0,
-        ties: team.ties || 0,
-        percentage: team.winPct || 0,
-        pointsFor: team.pointsFor || 0,
-        pointsAgainst: team.pointsAgainst || 0,
-        gamesBack: 0,
-        streakLength: 1,
-        streakType: StreakType.WIN
-      },
-      playoffRecord: {
-        wins: 0, losses: 0, ties: 0, percentage: 0,
-        pointsFor: 0, pointsAgainst: 0, gamesBack: 0,
-        streakLength: 0, streakType: StreakType.WIN
-      },
-      totalPoints: team.pointsFor || 0,
-      pointsPerGame: (team.pointsFor || 0) / Math.max(1, (team.wins || 0) + (team.losses || 0)),
-      highestScore: team.highScore || 0,
-      lowestScore: team.lowScore || 0,
-      weeklyScores: {},
-      strengthOfSchedule: 0.5
-    }));
+    return teams.map((team, index) => {
+      // Try to get team name from various legacy API fields
+      let teamName = team.teamName || team.name || team.teamAbbrev || team.abbrev;
+      if (!teamName) {
+        teamName = `Team ${team.teamId || team.id || index + 1}`;
+      }
+      
+      return {
+        teamId: team.teamId || team.id || index + 1,
+        teamName: teamName,
+        ownerNames: [team.ownerName || `Owner ${index + 1}`],
+        finalRank: team.overallStanding || index + 1,
+        regularSeasonRecord: {
+          wins: team.wins || 0,
+          losses: team.losses || 0,
+          ties: team.ties || 0,
+          percentage: team.winPct || 0,
+          pointsFor: team.pointsFor || 0,
+          pointsAgainst: team.pointsAgainst || 0,
+          gamesBack: 0,
+          streakLength: 1,
+          streakType: StreakType.WIN
+        },
+        playoffRecord: {
+          wins: 0, losses: 0, ties: 0, percentage: 0,
+          pointsFor: 0, pointsAgainst: 0, gamesBack: 0,
+          streakLength: 0, streakType: StreakType.WIN
+        },
+        totalPoints: team.pointsFor || 0,
+        pointsPerGame: (team.pointsFor || 0) / Math.max(1, (team.wins || 0) + (team.losses || 0)),
+        highestScore: team.highScore || 0,
+        lowestScore: team.lowScore || 0,
+        weeklyScores: {},
+        strengthOfSchedule: 0.5
+      };
+    });
   }
 
   // Additional helper methods
   private extractOwnerNames(team: any): string[] {
     if (team.owners && Array.isArray(team.owners)) {
-      return team.owners.map((owner: any) => owner.displayName || owner.firstName || 'Unknown');
+      // Modern API - owners are GUIDs, need to look up in members array
+      return team.owners.map((ownerId: string) => {
+        // In a full implementation, you'd lookup the displayName from the members array
+        // For now, return a placeholder that shows we have owner data
+        return ownerId.substring(1, 9); // Take first 8 chars of GUID for now
+      });
     }
-    return [team.primaryOwner || 'Unknown Owner'];
+    return [team.primaryOwner || team.ownerName || 'Unknown Owner'];
   }
 
   private extractPlayoffRecord(team: any): any {
@@ -546,22 +574,18 @@ export class HistoricalDataService {
   }
 
   private calculateHighestScore(team: any): number {
-    // Calculate from weekly scores if available
-    return Math.random() * 50 + 140; // Mock for now
+    // This is now calculated in calculateTeamRecordsFromSchedule
+    return 0; // Will be overridden by real data
   }
 
   private calculateLowestScore(team: any): number {
-    // Calculate from weekly scores if available
-    return Math.random() * 30 + 80; // Mock for now
+    // This is now calculated in calculateTeamRecordsFromSchedule
+    return 0; // Will be overridden by real data
   }
 
   private extractWeeklyScores(team: any): { [week: number]: number } {
-    // Extract weekly scores from schedule/matchup data
-    const scores: { [week: number]: number } = {};
-    for (let week = 1; week <= 14; week++) {
-      scores[week] = Math.random() * 50 + 100; // Mock for now
-    }
-    return scores;
+    // This is now calculated in calculateTeamRecordsFromSchedule
+    return {}; // Will be overridden by real data
   }
 
   private calculateStrengthOfSchedule(team: any, allTeams: any[]): number {
@@ -646,13 +670,19 @@ export class HistoricalDataService {
   }
 
   private extractPlayoffResults(schedule: any[], teams: any[]): PlayoffResults {
-    // Extract playoff bracket and results
+    // Sort teams by calculated final rank to get actual playoff results
+    const sortedTeams = [...teams].sort((a, b) => {
+      const rankA = a.rankCalculatedFinal || a.playoffSeed || 999;
+      const rankB = b.rankCalculatedFinal || b.playoffSeed || 999;
+      return rankA - rankB;
+    });
+    
     return {
       bracket: [],
-      champion: teams[0]?.id || 1,
-      runnerUp: teams[1]?.id || 2,
-      thirdPlace: teams[2]?.id || 3,
-      consolationWinner: teams[6]?.id || 7
+      champion: sortedTeams[0]?.id || 1,
+      runnerUp: sortedTeams[1]?.id || 2,
+      thirdPlace: sortedTeams[2]?.id || 3,
+      consolationWinner: sortedTeams[6]?.id || 7
     };
   }
 

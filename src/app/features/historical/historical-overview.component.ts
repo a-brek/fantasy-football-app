@@ -164,7 +164,7 @@ import {
           <h2 class="section-title">Season Summaries</h2>
           
           <div class="seasons-grid">
-            <div class="season-card" *ngFor="let season of availableSeasons().slice(0, 6)">
+            <div class="season-card" *ngFor="let season of (showAllSeasons ? availableSeasons() : availableSeasons().slice(0, 6))">
               <div class="season-header">
                 <h3>{{ season }} Season</h3>
                 <span class="season-status" *ngIf="season === latestSeason()">Current</span>
@@ -195,9 +195,15 @@ import {
             </div>
           </div>
 
-          <div class="view-all-seasons" *ngIf="availableSeasons().length > 6">
-            <button class="btn btn-secondary" [routerLink]="['/historical/seasons']">
+          <div class="view-all-seasons" *ngIf="availableSeasons().length > 6 && !showAllSeasons">
+            <button class="btn btn-secondary" (click)="viewAllSeasons()">
               View All {{ availableSeasons().length }} Seasons
+            </button>
+          </div>
+          
+          <div class="view-all-seasons" *ngIf="showAllSeasons">
+            <button class="btn btn-outline-secondary" (click)="showLessSeasons()">
+              Show Less
             </button>
           </div>
         </section>
@@ -598,6 +604,12 @@ import {
       color: white;
     }
 
+    .btn-outline-secondary {
+      border-color: var(--secondary-color, #6c757d);
+      color: var(--secondary-color, #6c757d);
+      background: transparent;
+    }
+
     .btn-sm {
       padding: 0.375rem 0.75rem;
       font-size: 0.8rem;
@@ -649,6 +661,9 @@ export class HistoricalOverviewComponent implements OnInit {
   
   private readonly historicalStore = inject(HistoricalDataStore);
   private readonly teamsStore = inject(TeamsStore);
+  
+  // Control how many seasons to show
+  protected showAllSeasons = false;
 
   // Store computed properties
   public readonly isLoading = this.historicalStore.isLoading;
@@ -687,38 +702,62 @@ export class HistoricalOverviewComponent implements OnInit {
 
   getSingleGameRecords(): Array<{key: string, value: number, teamName: string, seasonId: number, week?: number}> {
     const records = this.allTimeRecords();
-    if (!records) return [];
+    if (!records || !records.singleGameRecords) return [];
     
-    return [
-      { key: 'highestScore', ...records.singleGameRecords.highestScore },
-      { key: 'lowestScore', ...records.singleGameRecords.lowestScore },
-      { key: 'biggestBlowout', ...records.singleGameRecords.biggestBlowout },
-      { key: 'closestGame', ...records.singleGameRecords.closestGame }
-    ];
+    const result = [];
+    if (records.singleGameRecords.highestScore && records.singleGameRecords.highestScore.teamName !== 'No Data') {
+      result.push({ key: 'highestScore', ...records.singleGameRecords.highestScore });
+    }
+    if (records.singleGameRecords.lowestScore && records.singleGameRecords.lowestScore.teamName !== 'No Data') {
+      result.push({ key: 'lowestScore', ...records.singleGameRecords.lowestScore });
+    }
+    if (records.singleGameRecords.biggestBlowout && records.singleGameRecords.biggestBlowout.teamName !== 'No Data') {
+      result.push({ key: 'biggestBlowout', ...records.singleGameRecords.biggestBlowout });
+    }
+    if (records.singleGameRecords.closestGame && records.singleGameRecords.closestGame.teamName !== 'No Data') {
+      result.push({ key: 'closestGame', ...records.singleGameRecords.closestGame });
+    }
+    return result;
   }
 
   getSeasonRecords(): Array<{key: string, value: number, teamName: string, seasonId: number}> {
     const records = this.allTimeRecords();
-    if (!records) return [];
+    if (!records || !records.seasonRecords) return [];
     
-    return [
-      { key: 'mostWins', ...records.seasonRecords.mostWins },
-      { key: 'fewestWins', ...records.seasonRecords.fewestWins },
-      { key: 'mostPoints', ...records.seasonRecords.mostPoints },
-      { key: 'fewestPoints', ...records.seasonRecords.fewestPoints }
-    ];
+    const result = [];
+    if (records.seasonRecords.mostWins && records.seasonRecords.mostWins.teamName !== 'No Data') {
+      result.push({ key: 'mostWins', ...records.seasonRecords.mostWins });
+    }
+    if (records.seasonRecords.fewestWins && records.seasonRecords.fewestWins.teamName !== 'No Data') {
+      result.push({ key: 'fewestWins', ...records.seasonRecords.fewestWins });
+    }
+    if (records.seasonRecords.mostPoints && records.seasonRecords.mostPoints.teamName !== 'No Data') {
+      result.push({ key: 'mostPoints', ...records.seasonRecords.mostPoints });
+    }
+    if (records.seasonRecords.fewestPoints && records.seasonRecords.fewestPoints.teamName !== 'No Data') {
+      result.push({ key: 'fewestPoints', ...records.seasonRecords.fewestPoints });
+    }
+    return result;
   }
 
   getCareerRecords(): Array<{key: string, value: number, teamName: string, seasonId: number}> {
     const records = this.allTimeRecords();
-    if (!records) return [];
+    if (!records || !records.careerRecords) return [];
     
-    return [
-      { key: 'mostChampionships', ...records.careerRecords.mostChampionships },
-      { key: 'mostPlayoffAppearances', ...records.careerRecords.mostPlayoffAppearances },
-      { key: 'highestCareerWinPercentage', ...records.careerRecords.highestCareerWinPercentage },
-      { key: 'mostCareerPoints', ...records.careerRecords.mostCareerPoints }
-    ];
+    const result = [];
+    if (records.careerRecords.mostChampionships && records.careerRecords.mostChampionships.teamName !== 'No Data') {
+      result.push({ key: 'mostChampionships', ...records.careerRecords.mostChampionships });
+    }
+    if (records.careerRecords.mostPlayoffAppearances && records.careerRecords.mostPlayoffAppearances.teamName !== 'No Data') {
+      result.push({ key: 'mostPlayoffAppearances', ...records.careerRecords.mostPlayoffAppearances });
+    }
+    if (records.careerRecords.highestCareerWinPercentage && records.careerRecords.highestCareerWinPercentage.teamName !== 'No Data') {
+      result.push({ key: 'highestCareerWinPercentage', ...records.careerRecords.highestCareerWinPercentage });
+    }
+    if (records.careerRecords.mostCareerPoints && records.careerRecords.mostCareerPoints.teamName !== 'No Data') {
+      result.push({ key: 'mostCareerPoints', ...records.careerRecords.mostCareerPoints });
+    }
+    return result;
   }
 
   getRuleChanges(): Array<{seasonId: number, category: string, description: string, impact: string}> {
@@ -767,18 +806,40 @@ export class HistoricalOverviewComponent implements OnInit {
   }
 
   getSeasonChampion(season: number): string {
-    // Mock implementation - would get from historical data
-    return `Team ${Math.floor(Math.random() * 10) + 1}`;
+    const data = this.historicalStore.data();
+    const seasonData = data?.seasonData[season];
+    if (!seasonData || !seasonData.finalStandings || seasonData.finalStandings.length === 0) {
+      return 'TBD';
+    }
+    
+    const champion = seasonData.finalStandings.find(team => team.finalRank === 1);
+    return champion?.teamName || 'TBD';
   }
 
   getSeasonRunnerUp(season: number): string {
-    // Mock implementation - would get from historical data
-    return `Team ${Math.floor(Math.random() * 10) + 1}`;
+    const data = this.historicalStore.data();
+    const seasonData = data?.seasonData[season];
+    if (!seasonData || !seasonData.finalStandings || seasonData.finalStandings.length === 0) {
+      return 'TBD';
+    }
+    
+    const runnerUp = seasonData.finalStandings.find(team => team.finalRank === 2);
+    return runnerUp?.teamName || 'TBD';
   }
 
   getRegularSeasonLeader(season: number): string {
-    // Mock implementation - would get from historical data
-    return `Team ${Math.floor(Math.random() * 10) + 1}`;
+    const data = this.historicalStore.data();
+    const seasonData = data?.seasonData[season];
+    if (!seasonData || !seasonData.finalStandings || seasonData.finalStandings.length === 0) {
+      return 'TBD';
+    }
+    
+    // Find team with most regular season wins
+    const regularSeasonLeader = seasonData.finalStandings.reduce((leader, team) => {
+      return team.regularSeasonRecord.wins > leader.regularSeasonRecord.wins ? team : leader;
+    }, seasonData.finalStandings[0]); // Provide initial value to avoid empty array error
+    
+    return regularSeasonLeader?.teamName || 'TBD';
   }
 
   loadFullHistoricalData(): void {
@@ -795,6 +856,9 @@ export class HistoricalOverviewComponent implements OnInit {
 
   refreshHistoricalData(): void {
     console.log('🔄 Refreshing historical data...');
+    // Clear cached data to force fresh load
+    localStorage.removeItem('fantasy-football-historical-data');
+    
     this.historicalStore.refresh().subscribe({
       next: () => {
         console.log('✅ Historical data refreshed successfully');
@@ -803,5 +867,15 @@ export class HistoricalOverviewComponent implements OnInit {
         console.error('❌ Failed to refresh historical data:', error);
       }
     });
+  }
+
+  viewAllSeasons(): void {
+    console.log('📅 Viewing all seasons - expanding current view');
+    this.showAllSeasons = true;
+  }
+
+  showLessSeasons(): void {
+    console.log('📅 Showing fewer seasons - collapsing view');
+    this.showAllSeasons = false;
   }
 }

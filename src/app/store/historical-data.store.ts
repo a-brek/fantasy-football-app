@@ -235,9 +235,12 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
     
     // Check if we have cached data first
     const cachedData = this.getCachedHistoricalData();
-    if (cachedData) {
+    if (cachedData && cachedData.availableSeasons.length > 0) {
       console.log('📱 Using cached historical data, loading incrementally...');
       return this.loadIncrementalData(cachedData);
+    } else if (cachedData) {
+      console.log('🗑️ Found invalid cached data, clearing cache');
+      localStorage.removeItem(this.historicalConfig.storageKey!);
     }
     
     return this.historicalService.getAllHistoricalSeasons().pipe(
@@ -278,6 +281,36 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
     const currentYear = new Date().getFullYear();
     const recentYears = [currentYear, currentYear - 1, currentYear - 2];
     
+    // Check if cached data has old mock team names - if so, force full reload
+    const hasInvalidData = this.hasInvalidCachedData(cachedData);
+    if (hasInvalidData) {
+      console.log('🔄 Detected invalid cached data (mock team names), forcing full reload');
+      localStorage.removeItem(this.historicalConfig.storageKey!);
+      return this.historicalService.getAllHistoricalSeasons().pipe(
+        map(seasons => {
+          console.log(`✅ Full reload: ${seasons.length} historical seasons`);
+          
+          const availableSeasons = seasons.map(s => s.seasonId);
+          const seasonData = seasons.reduce((acc, season) => {
+            acc[season.seasonId] = season;
+            return acc;
+          }, {} as { [seasonId: number]: HistoricalSeason });
+          
+          const historicalData = {
+            availableSeasons,
+            seasonData,
+            teamHistories: this.buildTeamHistories(seasons),
+            leagueEvolution: this.buildLeagueEvolution(seasons),
+            allTimeRecords: this.buildAllTimeRecords(seasons),
+            lastUpdated: Date.now()
+          };
+          
+          this.cacheHistoricalData(historicalData);
+          return historicalData;
+        })
+      );
+    }
+    
     // Check which recent seasons need updating
     const seasonsToUpdate = recentYears.filter(year => {
       const cachedSeason = cachedData.seasonData[year];
@@ -303,7 +336,8 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
         
         responses.forEach(response => {
           if (response.success && response.data) {
-            const historicalSeason = this.transformAPIResponse(response.data, response.year, response.apiVersion);
+            // Use the service's transformation logic instead of our own
+            const historicalSeason = this.historicalService.transformToHistoricalSeason(response.data, response.year, response.apiVersion);
             if (historicalSeason) {
               updatedSeasonData[response.year] = historicalSeason;
               updatedSeasons.push(historicalSeason);
@@ -372,43 +406,33 @@ export class HistoricalDataStore extends BaseStore<HistoricalData> {
   }
 
   /**
+   * Check if cached data contains invalid/mock team names
+   */
+  private hasInvalidCachedData(cachedData: HistoricalData): boolean {
+    const currentYear = new Date().getFullYear();
+    const recentSeasons = [currentYear, currentYear - 1, currentYear - 2];
+    
+    for (const year of recentSeasons) {
+      const seasonData = cachedData.seasonData[year];
+      if (seasonData && seasonData.finalStandings && seasonData.finalStandings.length > 0) {
+        const firstTeam = seasonData.finalStandings[0];
+        // Check if team name is a mock "Team X" pattern or empty
+        if (!firstTeam.teamName || 
+            firstTeam.teamName.match(/^Team \d+$/) || 
+            firstTeam.teamName === 'TBD') {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Transform API response (extracted for reuse)
    */
   private transformAPIResponse(data: any, year: number, apiVersion: 'legacy' | 'modern'): HistoricalSeason | null {
-    // This would use the same transform logic from the historical service
-    // For now, return a minimal implementation
-    return {
-      seasonId: year,
-      leagueSettings: {
-        teamCount: 10,
-        scoringFormat: 'standard',
-        playoffFormat: { teams: 6, weeks: 3, bracket: 'single' },
-        rosterSettings: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DST: 1, K: 1, BENCH: 6 }
-      },
-      finalStandings: [],
-      seasonStats: {
-        leagueAverages: { pointsPerGame: 110, winningScore: 120, blowoutMargin: 30 },
-        seasonRecords: {
-          highestScore: { teamId: 1, value: 160 },
-          lowestScore: { teamId: 2, value: 80 },
-          mostPointsFor: { teamId: 3, value: 1600 },
-          mostPointsAgainst: { teamId: 4, value: 1580 },
-          bestRecord: { teamId: 5, value: 13 },
-          worstRecord: { teamId: 6, value: 2 },
-          biggestBlowout: { teamId: 7, value: 85 },
-          closestGame: { teamId: 8, value: 0.5 }
-        },
-        positionStats: {}
-      },
-      seasonHighlights: [],
-      playoffResults: { bracket: [], champion: 1, runnerUp: 2, thirdPlace: 3 },
-      draftInfo: {
-        draftDate: new Date(year, 7, 15).getTime(),
-        draftType: 'snake',
-        draftOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        draftPicks: []
-      }
-    };
+    // Use the historical service to transform the data properly
+    return this.historicalService.transformToHistoricalSeason(data, year, apiVersion);
   }
 
   protected getStoreName(): string {
