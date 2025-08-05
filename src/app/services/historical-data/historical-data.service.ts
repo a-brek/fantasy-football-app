@@ -405,9 +405,10 @@ export class HistoricalDataService {
    * Transform legacy API data (2010-2017)
    */
   private transformLegacyAPIData(data: any, year: number): HistoricalSeason {
-    // Legacy API has different structure - adapt accordingly
-    const teams = data.teams || data.leagueTeams || [];
-    const schedule = data.schedule || data.scoreboard || [];
+    // Legacy API returns array - get first element
+    const leagueData = Array.isArray(data) ? data[0] : data;
+    const teams = leagueData.teams || leagueData.leagueTeams || [];
+    const schedule = leagueData.schedule || leagueData.scoreboard || [];
     
     return {
       seasonId: year,
@@ -520,8 +521,14 @@ export class HistoricalDataService {
 
   // Helper methods for legacy API data transformation
   private createLegacyFinalStandings(teams: any[], year: number): HistoricalTeamStanding[] {
-    // Legacy API structure was different - adapt as needed
-    return teams.map((team, index) => {
+    // Sort teams by rankCalculatedFinal to get proper playoff results
+    const sortedTeams = [...teams].sort((a, b) => {
+      const rankA = a.rankCalculatedFinal || a.playoffSeed || a.overallStanding || 999;
+      const rankB = b.rankCalculatedFinal || b.playoffSeed || b.overallStanding || 999;
+      return rankA - rankB;
+    });
+    
+    return sortedTeams.map((team, index) => {
       // Try to get team name from various legacy API fields
       let teamName = team.teamName || team.name || team.teamAbbrev || team.abbrev;
       if (!teamName) {
@@ -532,7 +539,7 @@ export class HistoricalDataService {
         teamId: team.teamId || team.id || index + 1,
         teamName: teamName,
         ownerNames: [team.ownerName || `Owner ${index + 1}`],
-        finalRank: team.overallStanding || index + 1,
+        finalRank: team.rankCalculatedFinal || team.playoffSeed || team.overallStanding || (index + 1),
         regularSeasonRecord: {
           wins: team.wins || 0,
           losses: team.losses || 0,
@@ -679,6 +686,7 @@ export class HistoricalDataService {
 
   private extractPlayoffResults(schedule: any[], teams: any[]): PlayoffResults {
     // Sort teams by calculated final rank to get actual playoff results
+    // rankCalculatedFinal = 1 means champion, 2 means runner-up, etc.
     const sortedTeams = [...teams].sort((a, b) => {
       const rankA = a.rankCalculatedFinal || a.playoffSeed || 999;
       const rankB = b.rankCalculatedFinal || b.playoffSeed || 999;
@@ -695,11 +703,19 @@ export class HistoricalDataService {
   }
 
   private extractLegacyPlayoffResults(schedule: any[], teams: any[]): PlayoffResults {
+    // Sort teams by rankCalculatedFinal to get actual playoff results
+    const sortedTeams = [...teams].sort((a, b) => {
+      const rankA = a.rankCalculatedFinal || a.playoffSeed || a.overallStanding || 999;
+      const rankB = b.rankCalculatedFinal || b.playoffSeed || b.overallStanding || 999;
+      return rankA - rankB;
+    });
+    
     return {
       bracket: [],
-      champion: teams[0]?.teamId || teams[0]?.id || 1,
-      runnerUp: teams[1]?.teamId || teams[1]?.id || 2,
-      thirdPlace: teams[2]?.teamId || teams[2]?.id || 3
+      champion: sortedTeams[0]?.teamId || sortedTeams[0]?.id || 1,
+      runnerUp: sortedTeams[1]?.teamId || sortedTeams[1]?.id || 2,
+      thirdPlace: sortedTeams[2]?.teamId || sortedTeams[2]?.id || 3,
+      consolationWinner: sortedTeams[6]?.teamId || sortedTeams[6]?.id || 7
     };
   }
 
